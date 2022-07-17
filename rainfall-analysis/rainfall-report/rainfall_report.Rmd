@@ -1,0 +1,73 @@
+---
+author: "Hydrology Tasman District Council"
+output: 
+  html_document:
+    css: styles.css
+    toc: false
+    toc_float:
+      collapsed: false
+      smooth_scroll: false
+    toc_depth: 2
+    number_sections: false
+date: "`r format(Sys.time(), '%d %B %Y %X')`"
+params:
+  measurement: Rainfall
+---
+
+```{r setup, include = FALSE}
+Sys.setenv("MAPBOX_TOKEN" = "pk.eyJ1IjoibWF0dG9nZGVuIiwiYSI6ImNsNDNjY21jNDAxZmYzb3A4NWE2Y2M2cXEifQ.4vG7Zx9grk1z7R9LsDPeEA")
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+knitr::opts_chunk$set(echo = TRUE, fig.width = 7, fig.height = 5)
+knitr::opts_chunk$set(fig.align = "center", echo = FALSE, error = TRUE)
+
+endpoint <- "http://envdata.tasman.govt.nz/data.hts?"
+measurement <- params$measurement
+
+source("rainfall_report_code.R", local = knitr::knit_global())
+```
+
+---
+title: |
+  ![](img/tdc_logo.png){width="50%"}\
+  Rainfall Report for `r site_name`
+---
+
+# `r site_name`
+
+# Hourly Rainfall for `r site_name`
+
+```{r hourly-plot, include = TRUE, echo = FALSE}
+hrly_plot
+```
+
+# Daily Rainfall for `r site_name`
+
+```{r daily-plot, include = TRUE, echo = FALSE}
+daily_plot
+```
+
+# Site Information
+
+**Catchment:** `r catchment` \
+**Altitude:** `r altitude` \
+**Period of analysis:** `r analysis_period` \
+**Exposure:** `r exposure` \
+\
+**`r site_name` Statistcs** \
+
+```{r hirds-table, include = TRUE, echo = FALSE}
+knitr::kable(hirds_table)
+```
+
+Storm totals are from [HIRDS](https://hirds.niwa.co.nz/){target="_blank"} analysis based on site location. \
+\*\* Drought totals and extremes are from analysis based on data collected on site.
+
+# Map of Site Location
+
+```{r map, include = TRUE, echo = FALSE}
+map
+```
+
+# Disclaimer
+
+Tasman District Council has exercised all reasonable skill and care in collecting and displaying this information. However, the data is provisional, and may be incorrect until checked by staff. Data should be used with caution where there are safety, monetary, or operational consequences if the data is incorrect. Note also, the data may be changed at a later time.

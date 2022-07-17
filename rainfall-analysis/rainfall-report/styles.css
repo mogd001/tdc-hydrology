@@ -1,0 +1,29 @@
+#TOC {
+  color: #273691;
+  font-family: Calibri;
+  font-size 16px;
+  border-color: #000000;
+}
+h1 {
+  color: #273691;
+  background-color #273691;
+  font-family: Calibri;
+  font-size: 20px;
+}
+h2 {
+  color: #273691;
+  background-color #273691;
+  font-family: Calibri;
+  font-size: 16px;
+}
+h3 {
+  color: #273691;
+  background-color #273691;
+  font-family: Calibri;
+  font-size: 14px;
+}
+body {
+  color: #00000;
+  font-family: Calibri;
+  background-color: #00000;
+}

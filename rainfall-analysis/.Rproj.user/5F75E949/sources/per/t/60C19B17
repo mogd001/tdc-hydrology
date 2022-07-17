@@ -1,0 +1,26 @@
+{
+    "id": "60C19B17",
+    "path": "C:/Users/matto/OneDrive - Tasman District Council/Desktop/Working/R/rainfall-analysis/rainfall-report/generate_rainfall_report.R",
+    "project_path": "rainfall-report/generate_rainfall_report.R",
+    "type": "r_source",
+    "hash": "544003124",
+    "contents": "",
+    "dirty": false,
+    "created": 1655853271423.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "source_window_id": "",
+        "Source": "Source",
+        "cursorPosition": "14,1",
+        "scrollLine": "0"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1655861292,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1655861292,
+    "read_only": false,
+    "read_only_alternatives": []
+}
