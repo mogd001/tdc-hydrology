@@ -47,16 +47,16 @@ distance_along_cs <- function(x, y, x0, y0) {
 }
 
 ###### INPUTS
-#z_offset <- 16.6651 # if using lat-long, for ellipsoid to nzvd2016 conversion
-zoom <- 18 # for imagery
+#z_offset <- 16.6651 # if using lat-long, for ellipsoid to nzvd2016 conversion, preference is to manage all coordinates in nztm and nzvd2016. 
+zoom <- 18 # for downloaded imagery
 
-site <- "Borck Creek"
-cs_name <-  "BCCS" # ref column
-data_fp <- "data/20220720_borck_creek_example.csv"
+#site <- "Borck Creek"
+#cs_name <-  "BCCS" # ref column
+#data_fp <- "data/20220720_borck_creek_example.csv"
 
-#site <- "Motueka at Norths Bridge" # Tapawera Bridge # Norths Bridge # Korere Bridge
-#cs_name <- "Norths_CS" # Tapawera_CS # Norths_CS # Korere_CS
-#data_fp <- "data/20220729_waterwatchradars_rivers.csv"
+site <- "Korere Bridge" # Tapawera Bridge # Norths Bridge # Korere Bridge
+cs_name <- "Korere_CS" # Tapawera_CS # Norths_CS # Korere_CS
+data_fp <- "data/20220729_waterwatchradars_rivers.csv"
 ###### 
 
 df <- read_csv(data_fp) %>% 
@@ -91,11 +91,15 @@ if (all(is.na(df$easting))) {
 }
 
 
-
 ###### CROSS SECTION
+
+# TODO 
+# add legend for survey points
+# re-organise columns such the cs_d and elevation are the last two
+
 cs <- df %>% 
   filter(ref == !!cs_name) %>% 
-  select(easting, northing, elevation, description, lat, lon)
+  select(easting, northing, elevation, description, lat, lon, name)
 
 # fit linear regression to eastings/northings
 mdl <- lm(northing ~ easting, data = cs)
@@ -134,10 +138,17 @@ arrow <- cs_plot %>%
   st_drop_geometry() %>% 
   slice(1) %>% 
   add_row(lon = mp$lon, lat = mp$lat) 
-basemap <- get_googlemap(centre, zoom, maptype = "satellite")
 
-p1 <- ggmap(basemap) +
+basemap <- get_googlemap(centre, zoom, maptype = "satellite")
+basemap_attributes <- attributes(basemap)
+basemap_transparent <- matrix(adjustcolor(basemap, 
+                                                alpha.f = 0.5), 
+                                    nrow = nrow(basemap))
+attributes(basemap_transparent) <- basemap_attributes
+
+p1 <- ggmap(basemap_transparent) +
   geom_point(cs, mapping = aes(lon, lat), size = 2, shape = 3, color = "#ed7014", alpha = 0.8) +
+  geom_text(cs, mapping = aes(label = name), size = 3, hjust = -0.25, color = "#ed7014") + 
   geom_line(cs_plot, mapping = aes(lon, lat), color = "#ff0000") + 
   geom_path(arrow, mapping = aes(lon, lat), color = "#ff0000", arrow = arrow(), alpha = 0.8) + 
   geom_point(cs_plot, mapping = aes(lon, lat), color = "#ff0000") + 
@@ -154,7 +165,9 @@ p1 <- ggmap(basemap) +
 p2 <- ggplot(cs, aes(d_cs, elevation), color = "blue") + 
   geom_line(color = "#ff0000") +
   geom_point(data = cs, aes(d_cs, elevation), color = "red", size = 2, alpha = 0.8) +
+  geom_text(cs, mapping = aes(label = name), size = 2, vjust = -2, color = "#ed7014") + 
   coord_fixed(3) + 
+  scale_y_continuous(expand = expansion(add = 1)) + 
   labs(x = "Distance along Cross-section (m)", y = "Elevation (m NZVD2016)") + 
   theme_bw()
 
@@ -163,9 +176,12 @@ p3 <- p1 / p2 + plot_annotation(
   caption = "Source: TDC Hydrology"
 )
 
+# save plot
+print(p3)
+ggsave(paste0("outputs/cs-", site, ".png"), dpi = 300)
+dev.off()
+
+# save cross section data
 cs %>% 
   st_drop_geometry() %>% 
   write_csv(paste0("outputs/cs-", site, ".csv"))
-
-print(p3)
-dev.off()
