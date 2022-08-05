@@ -50,13 +50,13 @@ distance_along_cs <- function(x, y, x0, y0) {
 #z_offset <- 16.6651 # if using lat-long, for ellipsoid to nzvd2016 conversion, preference is to manage all coordinates in nztm and nzvd2016. 
 zoom <- 18 # for downloaded imagery
 
-#site <- "Borck Creek"
-#cs_name <-  "BCCS" # ref column
-#data_fp <- "data/20220720_borck_creek_example.csv"
+site <- "Borck Creek"
+cs_name <-  "BCCS" # ref column
+data_fp <- "data/20220720_borck_creek_example.csv"
 
-site <- "Korere Bridge" # Tapawera Bridge # Norths Bridge # Korere Bridge
-cs_name <- "Korere_CS" # Tapawera_CS # Norths_CS # Korere_CS
-data_fp <- "data/20220729_waterwatchradars_rivers.csv"
+#site <- "Norths Bridge" # Tapawera Bridge # Norths Bridge # Korere Bridge
+#cs_name <- "Norths_CS" # Tapawera_CS # Norths_CS # Korere_CS
+#data_fp <- "data/20220729_waterwatchradars_rivers.csv"
 ###### 
 
 df <- read_csv(data_fp) %>% 
