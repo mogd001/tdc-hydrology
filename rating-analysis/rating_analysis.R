@@ -53,14 +53,14 @@ flow_operative <-
 
 # Construct base df
 df <- tibble(datetime = seq(
-  as.POSIXct(start_date, format = "%Y%m%d", tz = "NZ"),
-  as.POSIXct(end_date, format = "%Y%m%d", tz = "NZ"),
+  as.POSIXct(start_date, format = "%Y%m%d", tz = "Etc/GMT+12"),
+  as.POSIXct(end_date, format = "%Y%m%d", tz = "Etc/GMT+12"),
   by = "5 mins"
 )) %>%
   mutate(
     hour = hour(datetime),
     weekday = wday(datetime, week_start = 1),
-    date = as.Date(datetime, tz = "NZ"),
+    date = as.Date(datetime, tz = "UTC"),
     year = year(datetime)
   ) %>% # Merge base df with working and operative data and ratings plus gaugings
   left_join(flow_working, by = "datetime") %>%
@@ -92,7 +92,7 @@ change_points <- df %>%
   mutate(
     rn = as.numeric(rn),
     cp = ifelse(rn %in% cps, 1, 0),
-    date = as.Date(datetime, tz = "NZ"),
+    date = as.Date(datetime, tz = "Etc/GMT+12"),
     origin = "rating-adjustment"
   ) %>%
   rename(start_time = datetime) %>%
@@ -140,7 +140,7 @@ summary_table <- df %>%
   summarise(
     start = min(datetime),
     end = max(datetime),
-    mid_point = as.POSIXct(paste0(mid_date(as.Date(start), as.Date(end)), " 00:00:00"), tz = "NZ"),
+    mid_point = as.POSIXct(paste0(mid_date(as.Date(start), as.Date(end)), " 00:00:00"), tz =  "Etc/GMT+12"),
     t_rating = round(max(datetime) - min(datetime), 1),
     
     t_last_gauging_to_rating_change = round(max(datetime) - max(datetime[!is.na(gauging)]), 1),
