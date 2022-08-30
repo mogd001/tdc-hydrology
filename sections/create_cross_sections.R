@@ -3,6 +3,7 @@ library(ggplot2)
 library(sf)
 library(sp)
 library(patchwork)
+library(glue)
 
 #mapping
 library(ggmap)
@@ -47,16 +48,14 @@ distance_along_cs <- function(x, y, x0, y0) {
 }
 
 ###### INPUTS
-#z_offset <- 16.6651 # if using lat-long, for ellipsoid to nzvd2016 conversion, preference is to manage all coordinates in nztm and nzvd2016. 
-zoom <- 18 # for downloaded imagery
+site <- "Waimea at TDC Nursery"
+cs_name <-  "cs" # ref column - will need to add to 
 
-site <- "Borck Creek"
-cs_name <-  "BCCS" # ref column
-data_fp <- "data/20220720_borck_creek_example.csv"
+water_level <- 6.1 # water level to display
+water_level_additional_text <- "at 2022-08-20 11:15"
 
-#site <- "Norths Bridge" # Tapawera Bridge # Norths Bridge # Korere Bridge
-#cs_name <- "Norths_CS" # Tapawera_CS # Norths_CS # Korere_CS
-#data_fp <- "data/20220729_waterwatchradars_rivers.csv"
+z_offset <- NA # if using lat-long, for ellipsoid to nzvd2016 conversion, preference is to manage all coordinates in nztm and nzvd2016. 
+zoom <- 18 # for downloaded imagery, default = 18
 ###### 
 
 df <- read_csv(data_fp) %>% 
@@ -70,7 +69,7 @@ df <- read_csv(data_fp) %>%
 #TODO - 3D transformation to handle Z coordinate.
 if (all(is.na(df$easting))) {
   # perform wgs -> nztm conversion, include offset.
-  print("WGS coordinates. Transform.")
+  print("WGS coordinates. Transform.  Has z_offset been correctly defined?")
   df <- df %>% 
     st_as_sf(coords = c("longitude", "latitude"), crs = 4326) %>% 
     st_transform(crs = 2193) %>% 
@@ -90,12 +89,10 @@ if (all(is.na(df$easting))) {
     )
 }
 
-
 ###### CROSS SECTION
 
 # TODO 
 # add legend for survey points
-# re-organise columns such the cs_d and elevation are the last two
 
 cs <- df %>% 
   filter(ref == !!cs_name) %>% 
@@ -111,9 +108,11 @@ cs <- cs %>%
   mutate(
     unnest(as_tibble(t(mapply(transform_to_cs, easting, northing, intcpt = intcpt, slope = slope))), cols = c(x_dash, y_dash))
   ) %>% 
+  arrange(x_dash) %>%
   mutate(
     d_cs = mapply(distance_along_cs, x_dash, y_dash, .$x_dash[1], .$y_dash[1])
-  )
+  ) %>% 
+  relocate(elevation, .after = d_cs)
 
 cs_plot <- tibble(easting = cs$x_dash, northing = cs$y_dash) %>% 
   st_as_sf(coords = c("easting", "northing"), crs = 2193) %>% 
@@ -129,6 +128,7 @@ p0 <- ggplot(cs, aes(easting, northing)) +
   geom_smooth(method = "lm", se = FALSE, color = "red") +
   geom_point(data = cs, aes(x_dash, y_dash), color = "blue", size = 4, alpha = 0.2) +
   coord_fixed(ratio = 1)
+p0
 
 # draw map
 centre <- c((min(cs$lon) + max(cs$lon))/2, (min(cs$lat) + max(cs$lat))/2) # middle of cs
@@ -148,12 +148,12 @@ attributes(basemap_transparent) <- basemap_attributes
 
 p1 <- ggmap(basemap_transparent) +
   geom_point(cs, mapping = aes(lon, lat), size = 2, shape = 3, color = "#ed7014", alpha = 0.8) +
-  geom_text(cs, mapping = aes(label = name), size = 3, hjust = -0.25, color = "#ed7014") + 
+  geom_text(cs, mapping = aes(label = name), size = 3, hjust = -0.25, color = "#ed7014", angle = 45) + 
   geom_line(cs_plot, mapping = aes(lon, lat), color = "#ff0000") + 
   geom_path(arrow, mapping = aes(lon, lat), color = "#ff0000", arrow = arrow(), alpha = 0.8) + 
   geom_point(cs_plot, mapping = aes(lon, lat), color = "#ff0000") + 
-  scale_x_continuous(limits = c(min(cs$lon) - 0.00005, max(cs$lon) + 0.00005), expand = c(0, 0)) +
-  scale_y_continuous(limits = c( min(cs$lat) - 0.00005, max(cs$lat) + 0.00005), expand = c(0, 0)) + 
+  scale_x_continuous(limits = c(min(cs$lon) - 0.00015, max(cs$lon) + 0.00015), expand = c(0, 0)) +
+  scale_y_continuous(limits = c( min(cs$lat) - 0.00015, max(cs$lat) + 0.00015), expand = c(0, 0)) + 
   theme(axis.title.x=element_blank(), # axis remove labels
         axis.text.x=element_blank(),
         axis.ticks.x=element_blank(),
@@ -162,14 +162,29 @@ p1 <- ggmap(basemap_transparent) +
         axis.ticks.y=element_blank())
 
 # draw cross-section
-p2 <- ggplot(cs, aes(d_cs, elevation), color = "blue") + 
-  geom_line(color = "#ff0000") +
-  geom_point(data = cs, aes(d_cs, elevation), color = "red", size = 2, alpha = 0.8) +
-  geom_text(cs, mapping = aes(label = name), size = 2, vjust = -2, color = "#ed7014") + 
-  coord_fixed(3) + 
-  scale_y_continuous(expand = expansion(add = 1)) + 
-  labs(x = "Distance along Cross-section (m)", y = "Elevation (m NZVD2016)") + 
-  theme_bw()
+plot_water_level = FALSE
+if (!is.na(water_level)) {
+  plot_water_level = TRUE
+  
+  wl_x_start <- 0
+  wl_x_end <- max(cs$d_cs)
+  
+  wl_symbol <- tibble(x = 0.5 * (wl_x_start + wl_x_end), y = water_level + 0.4, label = glue("Water level {water_level} m {water_level_additional_text}"))
+}
+
+spline_int <- as.data.frame(spline(cs$d_cs, cs$elevation)) # if wanting a a spline connecting the datapoints opposed to straight lines
+
+p2 <- ggplot(cs, aes(d_cs, elevation)) + 
+  geom_point(color = "brown", size = 2, alpha = 0.8) +
+  geom_line(color = "brown") + #data = spline_int, aes(x, y)
+  geom_text(aes(label  = name), size = 2, hjust = -0.5, vjust = -1, color = "#ed7014", angle = 45) + 
+  coord_fixed(10) + 
+  scale_y_continuous(expand = expansion(add = 2)) + 
+  labs(x = "Distance along Cross-section (m)", y = glue("Elevation (m NZVD2016)")) + 
+  theme_bw() +
+  {if(plot_water_level) geom_segment(aes(x = wl_x_start, xend = wl_x_end, y = water_level, yend = water_level), color = "blue", alpha = 0.8)} + 
+  {if(plot_water_level) geom_point(wl_symbol, mapping = aes(x, y), shape = 25, fill = "blue", color = "black", size = 3)} + 
+  {if(plot_water_level) geom_text(wl_symbol, mapping = aes(x, y, label = label), hjust = -0.2,  color = "blue", size = 3)}
 
 p3 <- p1 / p2 + plot_annotation(
   title = paste0("Cross-section ", site),
@@ -178,7 +193,7 @@ p3 <- p1 / p2 + plot_annotation(
 
 # save plot
 print(p3)
-ggsave(paste0("outputs/cs-", site, ".png"), dpi = 300)
+ggsave(paste0("outputs/cs-", site, ".png"), dpi = 600, width = 6, height = 10)
 dev.off()
 
 # save cross section data
