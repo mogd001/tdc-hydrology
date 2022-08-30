@@ -4,12 +4,32 @@ library(sf)
 library(sp)
 library(patchwork)
 library(glue)
-
 #mapping
 library(ggmap)
 
+###### INPUTS ###############################################
+site <- "Waimea at TDC Nursery"
+cs_name <-  "cs" # ref column - will need to add to
+
+water_level <- 6.1 # water level to display
+water_level_additional_text <- "at 2022-08-20 11:15"
+
+rtk_cross_section <- read_csv("data/20220820_waimea_survey.csv")
+
+river_start_point <- "cs_adcpstart" # set to NA if no adcp not used to complete cross-section
+river_cross_section <- read_csv("data/20220829_waimea_adcp_profile.csv") %>% 
+  rename(
+    d_cs = Length,
+    elevation = Height
+  )
+
+z_offset <- NA # if using lat-long, for ellipsoid to nzvd2016 conversion, preference is to manage all coordinates in nztm and nzvd2016. 
+zoom <- 18 # for downloaded imagery, default = 18
+############################################################# 
+
+
 transform_to_cs <- function(x, y, intcpt, slope) {
-  # Function to transform x, y coordinate to point perpindicular to line. 
+  # Function t transform x, y coordinate to point perpendicular to line. 
   # line defined by intercept : intcpt and slope : slope.
   
   theta <- abs(atan(slope))
@@ -38,27 +58,68 @@ transform_to_cs <- function(x, y, intcpt, slope) {
     }
   }
   
-  data.frame(x_dash, y_dash)
+  return(data.frame(x_dash, y_dash))
 }
 
 
 distance_along_cs <- function(x, y, x0, y0) {
   # Function to calculate distance along cross-section from origin.
-  d <- sqrt((x - x0)^2 + (y - y0)^2)
+  return(sqrt((x - x0)^2 + (y - y0)^2))
 }
 
-###### INPUTS
-site <- "Waimea at TDC Nursery"
-cs_name <-  "cs" # ref column - will need to add to 
 
-water_level <- 6.1 # water level to display
-water_level_additional_text <- "at 2022-08-20 11:15"
+transform_river_cross_section <- function(cs_start, river_cs_start, river_cross_section, intcpt, slope) {
+  # Function to transform river cross-section (measured through adcp for example) to real world coordinates
+  # for combining with RTK survey cross-section.
+  theta <- atan(slope)
+  
+  x0 <- river_cs_start$x_dash
+  y0 <- river_cs_start$y_dash
+  
+  xs <- cs_start$x_dash
+  ys <- cs_start$y_dash
+  
+  d_csstart <- sqrt((xs - x0)^2 + (ys - y0)^2)
+  
+  # resample river_cross_section (10% of points)
+  river_cross_section <- river_cross_section %>% 
+    mutate(
+      filt = (row_number() - 1) %% 10
+    ) %>% 
+    filter(filt == 0) %>% 
+    select(-filt) 
+  
+  river_cross_section$x_dash <- x0 + river_cross_section$d_cs * cos(theta)
+  river_cross_section$y_dash <- y0 + river_cross_section$d_cs * sin(theta)
+  
+  river_cross_section %>% 
+    mutate(
+      ref = "river_cross_section",
+      easting = x_dash,
+      northing = y_dash
+    ) %>% 
+    st_as_sf(coords = c("easting", "northing"), crs = 2193) %>% 
+    mutate(
+      easting = st_coordinates(.)[, "X"],
+      northing = st_coordinates(.)[, "Y"],
+      elevation = as.numeric(elevation)
+    ) %>% 
+    st_transform(crs = 4326) %>% 
+    mutate(
+      lon = st_coordinates(.)[, "X"],
+      lat = st_coordinates(.)[, "Y"]
+    ) %>% 
+    st_transform(crs = 2193)  %>% 
+    mutate(
+      d_cs = d_cs + d_csstart # update from cross-section start
+    ) %>% 
+    slice(-1) # drop first row as covered by survey
+}
 
-z_offset <- NA # if using lat-long, for ellipsoid to nzvd2016 conversion, preference is to manage all coordinates in nztm and nzvd2016. 
-zoom <- 18 # for downloaded imagery, default = 18
-###### 
+now <- format(Sys.time(), "%Y%m%dT%H%M%S")
+now_plot <- str_replace(now, "T", " ")
 
-df <- read_csv(data_fp) %>% 
+df <- rtk_cross_section %>% 
   select_all(~gsub("\\s+|\\.", "_", .)) %>% 
   rename_all(tolower) %>% 
   mutate(
@@ -66,7 +127,7 @@ df <- read_csv(data_fp) %>%
     lon = longitude
   )
 
-#TODO - 3D transformation to handle Z coordinate.
+#TODO - 3D transformation to handle Z coordinate.  Preferentially everything is handled in NZTM/NZVD2016.
 if (all(is.na(df$easting))) {
   # perform wgs -> nztm conversion, include offset.
   print("WGS coordinates. Transform.  Has z_offset been correctly defined?")
@@ -90,13 +151,9 @@ if (all(is.na(df$easting))) {
 }
 
 ###### CROSS SECTION
-
-# TODO 
-# add legend for survey points
-
 cs <- df %>% 
-  filter(ref == !!cs_name) %>% 
-  select(easting, northing, elevation, description, lat, lon, name)
+  filter(grepl(!!cs_name, ref)) %>% 
+  select(easting, northing, elevation, ref, description, lat, lon, name)
 
 # fit linear regression to eastings/northings
 mdl <- lm(northing ~ easting, data = cs)
@@ -114,6 +171,17 @@ cs <- cs %>%
   ) %>% 
   relocate(elevation, .after = d_cs)
 
+# update cross-section to include river section from adcp (or other source)
+if (!is.na(river_start_point)) {
+  cs_start <- cs %>% head(1)
+  river_cs_start <- cs %>% filter(ref == !!river_start_point)
+  river_cross_section <- transform_river_cross_section(cs_start, river_cs_start, river_cross_section, intcpt = intcpt, slope = slope)
+  
+  cs <- bind_rows(cs, river_cross_section) %>% 
+    arrange(d_cs)
+}
+
+###### Visualising and Exporting
 cs_plot <- tibble(easting = cs$x_dash, northing = cs$y_dash) %>% 
   st_as_sf(coords = c("easting", "northing"), crs = 2193) %>% 
   st_transform(crs = 4326) %>% 
@@ -149,9 +217,9 @@ attributes(basemap_transparent) <- basemap_attributes
 p1 <- ggmap(basemap_transparent) +
   geom_point(cs, mapping = aes(lon, lat), size = 2, shape = 3, color = "#ed7014", alpha = 0.8) +
   geom_text(cs, mapping = aes(label = name), size = 3, hjust = -0.25, color = "#ed7014", angle = 45) + 
-  geom_line(cs_plot, mapping = aes(lon, lat), color = "#ff0000") + 
-  geom_path(arrow, mapping = aes(lon, lat), color = "#ff0000", arrow = arrow(), alpha = 0.8) + 
-  geom_point(cs_plot, mapping = aes(lon, lat), color = "#ff0000") + 
+  geom_line(cs_plot, mapping = aes(lon, lat), color = "brown") + 
+  geom_path(arrow, mapping = aes(lon, lat), color = "brown", arrow = arrow(), alpha = 0.8) + 
+  geom_point(cs_plot, mapping = aes(lon, lat), color = "brown") + 
   scale_x_continuous(limits = c(min(cs$lon) - 0.00015, max(cs$lon) + 0.00015), expand = c(0, 0)) +
   scale_y_continuous(limits = c( min(cs$lat) - 0.00015, max(cs$lat) + 0.00015), expand = c(0, 0)) + 
   theme(axis.title.x=element_blank(), # axis remove labels
@@ -188,7 +256,7 @@ p2 <- ggplot(cs, aes(d_cs, elevation)) +
 
 p3 <- p1 / p2 + plot_annotation(
   title = paste0("Cross-section ", site),
-  caption = "Source: TDC Hydrology"
+  caption = glue("Source: TDC Hydrology, compiled {now_plot}")
 )
 
 # save plot
