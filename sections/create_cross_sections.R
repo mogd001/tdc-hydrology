@@ -4,8 +4,7 @@ library(sf)
 library(sp)
 library(patchwork)
 library(glue)
-#mapping
-library(ggmap)
+library(ggmap) # mapping
 
 ###### INPUTS ###############################################
 site <- "Waimea at TDC Nursery"
