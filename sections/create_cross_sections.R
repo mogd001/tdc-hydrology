@@ -8,9 +8,9 @@ library(ggmap) # mapping
 
 ###### INPUTS ###############################################
 site <- "Waimea at TDC Nursery"
-cs_name <-  "cs" # ref column - will need to add to
+cs_name <-  "cs" # "ref" column - will need to add to input csv.
 
-water_level <- 6.1 # water level to display
+water_level <- 6.1 # water level to plot.
 water_level_additional_text <- "at 2022-08-20 11:15"
 
 rtk_cross_section <- read_csv("data/20220820_waimea_survey.csv")
@@ -22,7 +22,7 @@ river_cross_section <- read_csv("data/20220829_waimea_adcp_profile.csv") %>%
     elevation = Height
   )
 
-z_offset <- NA # if using lat-long, for ellipsoid to nzvd2016 conversion, preference is to manage all coordinates in nztm and nzvd2016. 
+z_offset <- NA # if using lat-long, for ellipsoid to nzvd2016 conversion, preference is to manage all coordinates in NZTM and NZVD2016. 
 zoom <- 18 # for downloaded imagery, default = 18
 ############################################################# 
 
