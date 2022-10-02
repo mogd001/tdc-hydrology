@@ -20,10 +20,10 @@ library(patchwork)
 library(tmaptools)
 library(comprehenr)
 
-########### INPUT ########### 
+########### INPUTS ########### 
 ms <- seq(1, 12, 1)
 
-ms <- seq(8, 8, 1)
+ms <- seq(9, 9, 1)
 
 month_years <- to_vec(for(m in ms) paste0("2022-", m))
 ########### #################
@@ -45,7 +45,8 @@ get_site_data <- function(endpoint = endpoint) {
 } 
 
 get_rainfall_monthly_data <- function(endpoint = endpoint, collection = "Rainfall", from = "", to = "", month = "") {
-  get_data_collection(endpoint = endpoint, collection = collection, method = "Total", time_interval = NA, from = from, to = to, interval = "1 month", alignment = "00:00") %>%
+  get_data_collection(endpoint = endpoint, collection = collection, method = "Total", interval = "1 months", 
+                      from = from, to = to) %>%
     rename(rainfall_total = value) %>%
     group_by(site) %>%
     arrange(site, datetime) %>%
