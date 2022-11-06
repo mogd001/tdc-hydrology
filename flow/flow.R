@@ -28,14 +28,14 @@ x <- flows %>%
   arrange(desc(day_hour))
 
 p1 <- x %>%
-  ggplot(aes(x = datetime, y = flow)) +
+  ggplot(aes(x = day_hour, y = flow)) +
   geom_line(size = 1.2, color = "red") +
   geom_area(fill = "red", alpha = 0.4) +
   theme_bw() +
   labs(x = "Datetime (NZST)", y = "Flow (m3/s)", title = glue("{substring(site, 4)} Flow")) +
-  scale_x_datetime(breaks = seq(min(x$datetime, na.rm = TRUE), max(x$datetime, na.rm = TRUE), by = "3 hours"), date_labels = "%Y%m%d-%H") +
-  scale_y_continuous(limits = c(min(x$flow, na.rm = TRUE) * 0.95, max(xx$flow, na.rm = TRUE) * 1.05), expand = c(0, NA)) +
-  theme(axis.text.x = element_text(angle = 90),
+  scale_x_datetime(breaks = seq(min(x$day_hour, na.rm = TRUE), max(x$day_hour, na.rm = TRUE), by = "3 hours"), date_labels = "%Y%m%d-%H") +
+  scale_y_continuous(limits = c(min(x$flow, na.rm = TRUE) * 0.95, max(x$flow, na.rm = TRUE) * 1.05), expand = c(0, NA)) +
+  theme(axis.text.x = element_text(angle = 45 , vjust = 1, hjust=1),
         axis.ticks.y.left = element_line(colour = "red"),
         axis.title.y.left = element_text(colour = "red"),
         axis.line.y.left = element_line(color = "red"),
