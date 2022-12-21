@@ -22,10 +22,10 @@ from <- "Data start"
 to <- "Data end"
 max_rainfall <- 1000
 
+rainfall <- get_rainfall_monthly_data(from = from, to = to)
+
 unique(rainfall$site)
 site <- "HY Brook at Third House"
-
-rainfall <- get_rainfall_monthly_data(from = from, to = to)
 
 generate_historic_report <- function(s) {
   rainfall_site <- rainfall %>%
@@ -59,7 +59,7 @@ generate_historic_report <- function(s) {
     ) +
     guides(fill = guide_colourbar(title.position = "bottom"))
 
-  ggsave(glue("{substring(s, 4)}_rainfall_summary.png"), plot = p, width = 20, height = 10, dpi = 300)
+  ggsave(glue("outputs/{substring(s, 4)}_rainfall_summary.png"), plot = p, width = 20, height = 10, dpi = 300)
 }
 
 generate_historic_report(site)
