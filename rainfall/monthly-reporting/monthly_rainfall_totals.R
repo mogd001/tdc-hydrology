@@ -23,7 +23,7 @@ library(comprehenr)
 ########### INPUTS ###########
 ms <- seq(1, 12, 1)
 
-ms <- seq(10, 10, 1)
+ms <- seq(8, 8, 1)
 
 month_years <- to_vec(for (m in ms) paste0("2022-", m))
 ########### #################
