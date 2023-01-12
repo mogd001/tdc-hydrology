@@ -18,7 +18,7 @@ get_rainfall_monthly_data <- function(endpoint = endpoint, from = "", to = "") {
 
 
 summarise_rainfall <- function(n_previous_years = NA, rainfall) {
-  # Summmarise n_previous_years worth of rainfall data.  If NA 
+  # Summarise n_previous_years worth of rainfall data.  If NA 
   # defaults to all years.
   
   if (!is.na(n_previous_years)) {
