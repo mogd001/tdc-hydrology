@@ -1,0 +1,50 @@
+---
+title: "Flow Rating Analysis"
+author: "Matt Ogden"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    source_code: embed
+runtime: shiny
+---
+
+```{r global, include=FALSE}
+# load data in 'global' chunk so it can be shared by all users of the dashboard
+source("rating_analysis_for_app.R")
+
+#https://jjallaire.shinyapps.io/shiny-biclust/
+```
+
+Inputs {.sidebar}
+-----------------------------------------------------------------------
+
+```{r}
+selectInput("site", label = h3("Site"), 
+  choices = site_choices)
+```
+
+Explanation of analysis - to be completed.
+
+Row
+-----------------------------------------------------------------------
+
+### Time
+    
+```{r}
+i <- reactive(as.integer(input$site))
+i
+```
+
+Row {.tabset}
+-----------------------------------------------------------------------
+
+### P1
+    
+```{r}
+
+```
+   
+### P2
+
+```{r}
+```
