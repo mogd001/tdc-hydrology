@@ -13,7 +13,6 @@ library(gridExtra)
 
 source("functions.R")
 
-
 default_start_date <- ymd("2022-08-16")
 
 from <- format(default_start_date, "%Y%m%d")
