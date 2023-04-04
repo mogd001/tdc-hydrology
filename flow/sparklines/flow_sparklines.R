@@ -8,7 +8,7 @@ library(scales)
 library(htmltools)
 library(htmlwidgets)
 
-unlink("flow_outputs/*", recursive = TRUE)
+unlink("flow-sparklines/*", recursive = TRUE)
 
 catchments <- sf:: st_read("data/catchments.gpkg", layer = "catchments") %>% 
   mutate(catchment = factor(catchment,
@@ -16,7 +16,7 @@ catchments <- sf:: st_read("data/catchments.gpkg", layer = "catchments") %>%
                             levels=c("Aorere", "Takaka", "Riwaka", "Motueka", "Marahau", "Moutere", "Waimea", "Nelson", "Buller", "Other")))
 
 st_layers("data/catchments.gpkg")
-sites <- get_sites() %>%
+sites <- get_sites(collection = "ActiveFlowSites") %>%
   mutate(
     longitude_ = longitude,
     latitude_ = latitude
@@ -38,7 +38,7 @@ flow_data <- get_data_collection(collection = "ActiveFlowSites", interval = "1 h
     flow = round(flow, 2)) %>% 
   left_join(site_catchment, by = "site")
 
-max_datetime <- max(flow_data$datetime)
+max_datetime <- max(flow_data$datetime, na.rm = TRUE)
 min_datetime <- max_datetime - days(7)
 
 flow_data_p7d <- flow_data %>% 
@@ -76,14 +76,14 @@ p <- ggplot() +
         axis.ticks.y = element_blank(),
         strip.background = element_blank(),
         strip.text = element_text(hjust = 1),
-        plot.margin = unit(c(2, 2, 2, 2), "cm"))
+        plot.margin = unit(c(1, 1, 1, 1), "cm"))
 
-ggsave(glue("flow_outputs/{as.Date(max_datetime, tz = 'NZ')}_rainfall_sparklines.png"), p, dpi = 300, height = 10, width = 16)
+ggsave(glue("flow-sparklines/{as.Date(max_datetime, tz = 'NZ')}_flow_sparklines.png"), p, dpi = 300, height = 10, width = 16)
 
 # ggplotly
 p <- ggplot() +
   geom_line(flow_data_p7d_highlight, mapping = aes(x = dt, y = f, frame = date), size = 2, color = "red", alpha = 0.2) + 
-  geom_line(flow_data_p7d, mapping = aes(x = datetime, y = flow, color = catchment)) +
+  geom_line(flow_data_p7d, mapping = aes(x = datetime, y = flow, color = catchment, label = site)) +
   facet_wrap(catchment~site, scales = "free_y", labeller = plot_labeller) +
   labs(y = NULL, x = NULL, color = "Catchment", title = glue("Flow P7D (m3/s) {min_datetime} - {max_datetime}  [NZDT]")) +
   theme_classic() +
@@ -95,13 +95,16 @@ p <- ggplot() +
         axis.ticks.y = element_blank(),
         strip.background = element_blank(),
         strip.text = element_text(hjust = 1),
-        plot.margin = unit(c(2, 2, 2, 2), "cm"))
+        plot.margin = unit(c(1, 1, 1, 1), "cm"))
 
-plotly_p <- ggplotly(p, tooltip = c("datetime",  "flow"), height = 800, width = 1400) %>%
-  layout(hovermode = "x") %>%  
+plotly_p <- ggplotly(p, tooltip = c("datetime",  "flow", "site"), height = 800, width = 1600) %>%
   config(labeller = as_labeller(plot_labeller)) %>% 
   layout(hovermode = 'x unified') %>% 
   animation_opts(easing = "elastic") %>% 
   animation_button(visible = FALSE)
 
-save_html(plotly_p, file = glue("flow_outputs/{as.Date(max_datetime, tz = 'NZ')}_flow_sparklines.html"))
+save_html(plotly_p, file = glue("flow-sparklines/{as.Date(max_datetime, tz = 'NZ')}_flow_sparklines.html"))
+
+library(Microsoft365R)
+site <- get_sharepoint_site(site_name = "Environmental Monitoring")
+site$get_drive("Reports and Analyses")$upload_file(glue("flow-sparklines/{as.Date(max_datetime, tz = 'NZ')}_flow_sparklines.png"), glue("R Outputs/flow_sparklines.png"))

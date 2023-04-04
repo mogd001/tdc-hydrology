@@ -10,9 +10,9 @@ library(kableExtra)
 
 source("functions.R")
 
-site <- "HY Brook at Third House"
-from <- "20220816"
-to <- "20220822"
+site <- "HY Anatoki at Paradise"
+from <- "20221228"
+to <- "Now"
 
 site_information <- tdcR::get_site_information_envmon(site)
 hirds_table <- tdcR::tabulate_hirds_data_string(site_information$hirds_data)

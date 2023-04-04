@@ -14,7 +14,9 @@ get_rainfall_monthly_data <- function(endpoint = endpoint, from = "", to = "") {
     from = from, to = to
   ) %>%
     rename(rainfall_total_mm = value) %>%
-    mutate(month = month(datetime)) %>%
+    mutate(datetime = datetime - months(1),
+           month = month(datetime),
+           year = year(datetime)) %>%
     select(site, year, month, rainfall_total_mm)
 }
 

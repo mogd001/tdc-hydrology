@@ -1,0 +1,328 @@
+library(tidyverse)
+library(XML)
+library(rvest)
+library(lubridate)
+library(plotly)
+library(htmltools)
+library(htmlwidgets)
+library(tdcR)
+library(sf)
+library(glue)
+library(scales)
+library(DT)
+library(crosstalk)
+library(leaflet)
+library(leafpop)
+
+library(config)
+
+config <- config::get()
+
+# Topo template
+t_prefix <- "http://tiles-a.data-cdn.linz.govt.nz/services;key="
+key <- config$linzkey
+tMid <- "/tiles/v4/layer="
+tSuffix <- "/EPSG:3857/{z}/{x}/{y}.png"
+topo_50_template <- paste0(t_prefix, key, tMid, 50767, tSuffix)
+
+################################################################################
+#
+# Title: Rainfall Map Summary
+# Author: Matt Ogden
+# Description: This script summarises rainfall totals for the past 24 hours.
+#
+# Datatable - file:///M:/Datafiles/Data%20Tables/RainHour.htm
+#
+################################################################################
+
+unlink("outputs/*", recursive = TRUE)
+
+Sys.setenv("MAPBOX_TOKEN" = "pk.eyJ1IjoibWF0dG9nZGVuIiwiYSI6ImNsNDNjY21jNDAxZmYzb3A4NWE2Y2M2cXEifQ.4vG7Zx9grk1z7R9LsDPeEA")
+datatables_fp <- r"{\\tsrvfiles\hydrology\Datafiles\Data Tables}"
+
+catchments <- catchments <- st_read("data/context.gpkg", layer = "catchments")
+
+rivers <- st_read("data/context.gpkg", layer = "rivers") %>%
+  st_transform(crs = 4326)
+
+sites <- get_sites(collection = "AllRainfall", synonyms = TRUE) %>%
+  mutate(
+    longitude_ = longitude,
+    latitude_ = latitude
+  ) %>%
+  st_as_sf(coords = c("longitude_", "latitude_"), crs = 4326) %>%
+  st_transform(crs = 2193) %>%
+  st_join(catchments, join = st_intersects) %>%
+  replace_na(list(catchment = "Motueka"))
+
+site_names <- select(sites, site, second_synonym) %>%
+  st_drop_geometry() %>%
+  rename(site_name = second_synonym)
+
+# Get rainfall last 24 hours
+rainfall <- get_data_collection(collection = "AllRainfall", method = "Total", interval = "1 hour", time_interval = "P24H") %>%
+  distinct() %>%
+  mutate(datetime = with_tz(datetime, tz = "NZ")) %>%
+  left_join(site_names, by = "site") %>%
+  mutate(rainfall_total_mm = round(value, 1)) %>%
+  select(-value)
+
+rainfall_p24hrs <- rainfall %>%
+  group_by(site) %>%
+  summarise(total_p24hrs = round(sum(rainfall_total_mm), 1)) %>%
+  st_drop_geometry()
+
+rescale_vec <- function(x, new_min, new_max) {
+  ((x - min(x)) / (max(x) - min(x))) * (new_max - new_min) + new_min
+}
+
+max_rainfall <- max(rainfall_p24hrs$total_p24hrs, na.rm = TRUE)
+max_datetime <- max(rainfall$datetime, na.rm = TRUE)
+
+max_radius <- if (max_rainfall >= 200) {
+  max_radius <- 50
+} else if (max_rainfall >= 160) {
+  max_radius <- 40
+} else if (max_rainfall >= 120) {
+  max_radius <- 30
+} else if (max_rainfall >= 80) {
+  max_radius <- 20
+} else if (max_rainfall >= 40) {
+  max_radius <- 10
+} else {
+  max_radius <- 5
+}
+
+rainfall_summary <- sites %>%
+  st_drop_geometry() %>%
+  right_join(rainfall_p24hrs, by = c("site" = "site")) %>%
+  select(-c(site, first_synonym)) %>%
+  rename(site_name = second_synonym) %>%
+  relocate(site_name) %>%
+  arrange(desc(total_p24hrs)) %>%
+  mutate(radius = rescale_vec(total_p24hrs, 2, max_radius)) %>% # add extra column for plotting purposes
+  relocate(radius, .after = total_p24hrs)
+
+# https://emilyriederer.github.io/demo-crosstalk/tutorial/tutorial-rmd.html#Ex:_One_dataset,_two_widgets
+rf_ct <- SharedData$new(rainfall_summary, key = ~site_name)
+
+table_link <- "file:///M:/Datafiles/Data%20Tables/RainHour.htm"
+
+table <- rf_ct %>%
+  datatable(
+    caption = htmltools::tags$caption(
+      style = "caption-side: top; text-align: left; color:black;  font-size:100% ;",
+      htmltools::withTags(
+        div(HTML(glue('<a href={table_link} target="_blank">Rainfall Past 24 Hours</a> {max(rainfall$datetime)}')))
+      )
+    ),
+    rownames = FALSE,
+    colnames = c("Site", "Lat", "Long", "Catchment", "Total", "Radius"),
+    # filter = list(position = "bottom"),
+    options = list(
+      searching = FALSE,
+      pageLength = 15, lengthChange = FALSE, scrollX = TRUE, autoWidth = FALSE,
+      columnDefs = list(
+        list(targets = c(1, 2, 5), visible = FALSE)
+      )
+    )
+  )
+
+catchments <- st_transform(catchments, 4326)
+catchment_centroids <- catchments %>% st_centroid(catchments)
+
+round_any <- function(x, accuracy, f = round) {
+  f(x / accuracy) * accuracy
+}
+
+generate_plot <- function(site_name) {
+  print(site_name)
+  r_filtered <- filter(rainfall, site_name == !!site_name)
+
+  coeff <- 10
+  breaks <- seq(min(r_filtered$datetime, na.rm = TRUE), max(r_filtered$datetime, na.rm = TRUE), by = "1 hours")
+  date_labels <- c(sapply(breaks, function(x) {
+    if (hour(x) == 0) {
+      format(x, "%Y%m%d-%H")
+    } else {
+      format(x, "%H")
+    }
+  }))
+
+  p <- r_filtered %>%
+    mutate(
+      text = if_else(rainfall_total_mm == 0, "", as.character(rainfall_total_mm))
+    ) %>%
+    ggplot(aes(x = datetime - minutes(30), y = rainfall_total_mm)) +
+    geom_col(color = "blue", fill = "blue", alpha = 0.4) +
+    geom_text(aes(label = text), size = 2, color = "black", vjust = 2) +
+    geom_line(aes(x = datetime, y = cumsum((rainfall_total_mm)) / coeff), size = 0.8, color = "magenta", linetype = "twodash", inherit.aes = FALSE) +
+    scale_y_continuous(
+      name = "Hourly Rainfall (mm)",
+      limits = c(0, max(round_any(max(r_filtered$rainfall_total_mm), 10, ceiling), 10)),
+      expand = c(0, 0),
+      sec.axis = sec_axis(~ . * coeff, name = "Cumulative Rainfall (mm)"),
+    ) +
+    theme_bw() +
+    labs(x = "Datetime (NZDT)", title = glue("{site_name} Rainfall"), subtitle = glue("Total {sum(r_filtered$rainfall_total_mm)} mm")) +
+    scale_x_datetime(breaks = breaks, date_labels = date_labels) +
+    theme(
+      plot.subtitle = element_text(color = "magenta"),
+      axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1),
+      axis.ticks.y.left = element_line(colour = "blue"),
+      axis.title.y.left = element_text(colour = "blue"),
+      axis.line.y.left = element_line(color = "blue"),
+      axis.text.y.left = element_text(color = "blue"),
+      axis.ticks.y.right = element_line(colour = "magenta"),
+      axis.title.y.right = element_text(colour = "magenta", angle = 90),
+      axis.line.y.right = element_line(color = "magenta"),
+      axis.text.y.right = element_text(color = "magenta")
+    )
+
+  return(p)
+}
+
+p_all <- lapply(rainfall_summary$site_name, generate_plot)
+
+map <- leaflet(height = 900) %>%
+  addTiles(urlTemplate = topo_50_template, group = "NZ Topo50") %>%
+  addTiles(group = "OSM (default)") %>%
+  addProviderTiles(providers$Stamen.Toner, group = "Toner") %>%
+  addProviderTiles(providers$Stamen.TonerLite, group = "Toner Lite") %>%
+  # add catchments
+  addPolygons(
+    group = "Catchments",
+    data = catchments,
+    fillColor = "blue",
+    weight = 2,
+    opacity = 1,
+    color = "blue",
+    fillOpacity = 0.1,
+    labelOptions = labelOptions(noHide = FALSE, direction = "auto")
+  ) %>%
+  addLabelOnlyMarkers(
+    group = "Catchments",
+    data = catchment_centroids,
+    label = ~ as.character(catchment),
+    labelOptions = labelOptions(
+      noHide = TRUE, direction = "top", textOnly = TRUE,
+      style = list(
+        "color" = "blue",
+        "font-family" = "serif",
+        "font-style" = "bold",
+        # "box-shadow" = "3px 3px rgba(0,0,0,0.25)",
+        "font-size" = "15px"
+        # "border-color" = "rgba(0,0,0,0.5)"
+      )
+    )
+  ) %>%
+  # add rivers
+  addPolylines(
+    group = "Rivers",
+    data = rivers,
+    weight = 1
+  ) %>%
+  # add sites
+  addCircleMarkers(
+    group = "Sites",
+    data = rf_ct,
+    radius = ~radius,
+    color = "blue",
+    stroke = TRUE,
+    fillOpacity = 0.6,
+    label = ~ paste0(as.character(site_name), ": ", total_p24hrs, " mm"),
+    # clusterOptions = markerClusterOptions(removeOutsideVisibleBounds = FALSE),
+    labelOptions = labelOptions(noHide = FALSE, direction = "auto", style = list(
+      "color" = "black",
+      "font-family" = "serif",
+      "font-size" = "15px"
+    ))
+  ) %>%
+  addPopupGraphs(p_all, group = "Sites", width = 600, height = 500, dpi = 300) %>%
+  # Layers control
+  addLayersControl(
+    baseGroups = c("Toner Lite", "NZ Topo50", "OSM (default)", "Toner"),
+    overlayGroups = c("Catchments", "Rivers", "Sites"),
+    options = layersControlOptions(collapsed = TRUE)
+  )
+
+p <- crosstalk::bscols(
+  widths = c(4, 8),
+  div(table, style = css(width = "100%", height = "100%")),
+  div(map, style = css(width = "100%", height = "100%"))
+)
+
+htmltools::save_html(p, file = glue("outputs/{as.Date(max_datetime, tz = 'NZ')}_rainfall_summary_p24hrs.html"))
+
+library(Microsoft365R)
+site <- get_sharepoint_site(site_name = "Environmental Monitoring")
+site$get_drive("Reports and Analyses")$upload_file(glue("outputs/{as.Date(max_datetime, tz = 'NZ')}_rainfall_summary_p24hrs.html"), glue("R Outputs/rainfall_summary_p24hrs.html"))
+
+
+# # Load RainHour - old code
+# rain_hour <- "RainHour.htm"
+#
+# latest_hr <- with_tz(floor_date(now(), "1 hour"), tz = "Etc/GMT-12")
+# x <- c()
+# for (i in 0:23) {
+#   x <- append(x, format(latest_hr - hours(i), format = "%H:%M"))
+# }
+# header <- append(c("sitename", "total_p24hrs"), rev(x))
+# rain_hr_df <- read_html(paste0(datatables_fp, "\\", rain_hour)) %>%
+#   html_table(fill = TRUE, header = FALSE) %>%
+#   first()
+# names(rain_hr_df) <- header
+#
+#
+
+# map <- plot_mapbox() %>%
+#   #add_sf(data = catchments_wgs, split = ~catchment, color = ~catchment, mode = "polygon") %>%  # add catchment outlines
+#   add_markers(data = rf_ct,  x = ~longitude,  y= ~latitude,
+#               size = ~total * 2, mode = "markers",
+#               text = ~paste0(site_name, "\n Total rainfall last 24 hours: ", total, " mm")) %>%
+#   layout(
+#     title = "Rainfall Summary Past 24 hours",
+#     mapbox = list(
+#       style = "mapbox://styles/mapbox/dark-v9",
+#       center = list(lat = ~ median(latitude), lon = ~ median(longitude)),
+#       zoom = 6
+#     )#,
+#     #updatemenus = list(list(y = 0.8, buttons = rev(style_buttons)))
+#   )
+# 
+# styles <- schema()$layout$layoutAttributes$mapbox$style$values
+# style_buttons <- lapply(styles, function(s) {
+#   list(
+#     label = s,
+#     method = "relayout",
+#     args = list("mapbox.style", s)
+#   )
+# })
+# 
+# library(mapdeck)
+# df <- as.data.frame(rainfall_summary)
+# # mapdeck
+# md <- mapdeck(token = Sys.getenv("MAPBOX_TOKEN"), style = 'mapbox://styles/mapbox/dark-v9', pitch = 45) %>%
+#   add_grid(
+#     data = df,
+#     lat = "latitude",
+#     lon = "longitude",
+#     elevation = "total",
+#     colour = "total",
+#     cell_size = 1000,
+#     elevation_scale = 10,
+#     legend = TRUE,
+#     auto_highlight = TRUE,
+#     layer_id = "grid")
+# # ) %>%
+# # add_text(
+# #   data = df,
+# #   lat = "latitude",
+# #   lon = "longitude",
+# #   text = "total",
+# #   fill_colour = 'total',
+# #   size = 1000,
+# #   layer_id = "text"
+# # )
+#
+# save_html(md, file = "outputs/test.html")

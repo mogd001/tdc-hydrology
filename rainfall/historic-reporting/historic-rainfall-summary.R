@@ -7,18 +7,20 @@ get_rainfall_monthly_data <- function(endpoint = endpoint, from = "", to = "") {
   # Get rainfall totals by month from collection.
   
   tdcR::get_data_collection(
-    collection = "Rainfall", method = "Total", interval = "1 months",
+    collection = "AllRainfall", method = "Total", interval = "1 months",
     from = from, to = to
   ) %>%
     rename(rainfall_total_mm = value) %>%
-    mutate(month = month(datetime, label = TRUE),
+    mutate(datetime = datetime - months(1),
+            month = month(datetime, label = TRUE),
+           year = year(datetime),
            year_month = format(datetime, format = "%Y%m")) %>%
     select(site, year, month, year_month, rainfall_total_mm)
 }
 
 
 summarise_rainfall <- function(n_previous_years = NA, rainfall) {
-  # Summarise n_previous_years worth of rainfall data.  If NA 
+  # Summarise n_previous_years of rainfall data.  If NA 
   # defaults to all years.
   
   if (!is.na(n_previous_years)) {
