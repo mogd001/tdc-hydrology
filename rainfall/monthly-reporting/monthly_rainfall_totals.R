@@ -21,11 +21,11 @@ library(tmaptools)
 library(comprehenr)
 
 ########### INPUTS ###########
-ms <- seq(1, 12, 1)
+ms <- seq(8, 12, 1)
 
-ms <- seq(8, 8, 1)
+#ms <- seq(8, 8, 1)
 
-month_years <- to_vec(for (m in ms) paste0("2022-", m))
+month_years <- to_vec(for (m in ms) paste0("2021-", m))
 ########### #################
 
 # TODO - functionalise kriging
@@ -49,6 +49,7 @@ get_rainfall_monthly_data <- function(endpoint = endpoint, collection = "Rainfal
     endpoint = endpoint, collection = collection, method = "Total", interval = "1 months",
     from = from, to = to
   ) %>%
+    mutate(month = month(datetime, label = TRUE)) %>% 
     rename(rainfall_total = value) %>%
     group_by(site) %>%
     arrange(site, datetime) %>%
