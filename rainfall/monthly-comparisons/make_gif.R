@@ -2,6 +2,8 @@ library(tidyverse)
 library(magick)
 library(magrittr)
 
+# 04/04/2023 moved pngs from repository. 
+
 list.files(path='2020_pngs/', pattern = '*.png', full.names = TRUE) %>% 
   image_read() %>% # reads each path file
   image_scale(1000) %>% 
