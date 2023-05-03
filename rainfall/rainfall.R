@@ -50,13 +50,15 @@ r <- get_data_site_measurement(endpoint = "https://data.hbrc.govt.nz/Envirodata/
   rename(rainfall_total_mm = value)
 
 
-# daily totals
+# Daily totals
 rainfall <- get_data_collection(collection = "AllRainfall",
-                                method = "Total", interval = "1 day", from = "20210101", to = "20211231") %>% 
-  mutate(datetime = with_tz(datetime, "NZ")) %>% 
+                                method = "Total", interval = "1 day", from = "20230410", to = "Now") %>% 
+  mutate(datetime = with_tz(datetime, "NZ"),
+         date = date(datetime) - days(1)) %>% 
+  
   rename(rainfall_total_mm = value) 
 
-site <- "HY Anatoki at Paradise"
+site <- "HY Richmond Weather at TDC Roof"
 
 r <- rainfall %>% 
   filter(site == !!site)

@@ -143,7 +143,7 @@ generate_plot <- function(site_name) {
   breaks <- seq(min(r_filtered$datetime, na.rm = TRUE), max(r_filtered$datetime, na.rm = TRUE), by = "1 hours")
   date_labels <- c(sapply(breaks, function(x) {
     if (hour(x) == 0) {
-      format(x, "%Y%m%d-%H")
+      format(x, "%a %d %B-%H")
     } else {
       format(x, "%H")
     }
@@ -254,10 +254,26 @@ p <- crosstalk::bscols(
 
 htmltools::save_html(p, file = glue("outputs/{as.Date(max_datetime, tz = 'NZ')}_rainfall_summary_p24hrs.html"))
 
+# Upload to sharepoint
 library(Microsoft365R)
 site <- get_sharepoint_site(site_name = "Environmental Monitoring")
 site$get_drive("Reports and Analyses")$upload_file(glue("outputs/{as.Date(max_datetime, tz = 'NZ')}_rainfall_summary_p24hrs.html"), glue("R Outputs/rainfall_summary_p24hrs.html"))
 
+tryCatch(
+  expr = {
+    site$get_drive("Reports and Analyses")$delete_item("R Outputs/lib/image-Sites-0.0.1")
+  },
+  error = function(e) {
+    print("No image-Sites folder to delete.")
+  }
+)
+
+upload_image_sharepoint <- function(x, target_folder) {
+  site$get_drive("Reports and Analyses")$upload_file(glue("outputs/{target_folder}/{x}"), glue("R Outputs/{target_folder}/{x}"))
+}
+
+sites_files <- list.files("outputs/lib/image-Sites-0.0.1")
+map(sites_files, upload_image_sharepoint, target_folder = "lib/image-Sites-0.0.1")
 
 # # Load RainHour - old code
 # rain_hour <- "RainHour.htm"
