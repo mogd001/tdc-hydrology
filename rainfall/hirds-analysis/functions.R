@@ -47,13 +47,12 @@ determine_ari_duration <- function(dl, v, hirds) {
 }
 
 
-get_max_rainfall <- function(site, interval, from, to) {
-  interval_offset <- convert_interval_to_offset(interval)
+get_max_rainfall <- function(site, interval, from, to, endpoint = "http://envdata.tasman.govt.nz/data.hts?", measurement = "Rainfall") {
 
-  get_data_site_measurement(site = site, measurement = "Rainfall", method = "Moving Average", interval = interval, from = from, to = to) %>%
+  get_data_site_measurement(endpoint, site = site, measurement = measurement, method = "Moving Average", interval = interval, from = from, to = to) %>%
     dplyr::select(datetime, value) %>%
     mutate(
-      datetime = datetime + 0.5 * as.duration(interval_offset),
+      datetime = with_tz(datetime, tz = "NZ"),
       duration_interval = interval
     ) %>%
     slice_max(value) %>%

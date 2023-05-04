@@ -11,26 +11,35 @@ library(kableExtra)
 source("functions.R")
 
 site <- "HY Anatoki at Paradise"
-from <- format(now() - days(5), "%Y%m%d")
-to <- "Now"
+from <- "Now"
+to <- "Data end"
+forecast_start <- now() 
+
+#test
+#t <- get_max_rainfall(site, "1 hour", "Now", "Data end", endpoint = "http://envdata.tasman.govt.nz/forecasts.hts?", measurement = "Forecast Rainfall")
+# consider future rainfall
+forecast_rainfall <- tdcR::get_data_site_measurement(endpoint = "http://envdata.tasman.govt.nz/forecasts.hts?", site = site, measurement = "Forecast Rainfall", from = "Now", to = "Data end")
+
+max_forecast_datetime <- max(forecast_rainfall$datetime) %>% with_tz(tz = "NZ") 
+
 
 site_information <- tdcR::get_site_information_envmon(site)
 hirds_table <- tdcR::tabulate_hirds_data_string(site_information$hirds_data)
 
 duraction_text_to_val <- tribble(
   ~duration_text, ~duration, ~duration_interval, ~duration_label,
-  "dur_10min", 1 / 6, "10 minutes", "10 min",
-  "dur_20min", 2 / 6, "20 minutes", "20 min",
-  "dur_30min", 3 / 6, "30 minutes", "30 min",
+#  "dur_10min", 1 / 6, "10 minutes", "10 min",
+#  "dur_20min", 2 / 6, "20 minutes", "20 min",
+#  "dur_30min", 3 / 6, "30 minutes", "30 min",
   "dur_1hour", 1, "1 hour", "1 hour",
   "dur_2hour", 2, "2 hours", "2 hours",
   "dur_6hour", 6, "6 hours", "6 hours",
   "dur_12hour", 12, "12 hours", "12 hours",
   "dur_1day", 24, "24 hours", "1 day",
-  "dur_2day", 48, "48 hours", "2 days",
-  "dur_3day", 72, "72 hours", "3 days",
-  "dur_4day", 96, "96 hours", "4 days",
-  "dur_5day", 120, "120 hours", "5 days"
+  "dur_2day", 48, "48 hours", "2 days" #,
+#  "dur_3day", 72, "72 hours", "3 days",
+#  "dur_4day", 96, "96 hours", "4 days",
+#  "dur_5day", 120, "120 hours", "5 days"
 )
 
 nz_record <- tribble(
@@ -65,7 +74,7 @@ hirds <- hirds_table %>%
 
 intervals <- duraction_text_to_val$duration_interval
 
-observed <- do.call(rbind, lapply(intervals, get_max_rainfall, site = site, from = from, to = to)) %>%
+forecast <- do.call(rbind, lapply(intervals, get_max_rainfall, site = site, from = from, to = to, endpoint = "http://envdata.tasman.govt.nz/forecasts.hts?", measurement = "Forecast Rainfall")) %>%
   left_join(duraction_text_to_val, by = "duration_interval") %>%
   mutate(
     ari_for_duration = unlist(map2(duration_label, value, determine_ari_duration, hirds)),
@@ -73,7 +82,7 @@ observed <- do.call(rbind, lapply(intervals, get_max_rainfall, site = site, from
                                if_else(ari_for_duration == 999, ">100+", as.character(round(ari_for_duration, 1))))
   )
 
-dplyr::select(observed, c(duration_label, rainfall_mm = value, ari_for_duration)) %>% 
+dplyr::select(forecast, c(duration_label, rainfall_mm = value, ari_for_duration)) %>% 
                 mutate(rainfall_mm = round(rainfall_mm, 1)) %>% 
                 knitr::kable("html", col.names = c("Duration",  "Rainfall (mm)", "ARI")) %>% 
                 kable_styling("striped") %>%
@@ -107,8 +116,8 @@ p1 <- ggplot() +
     color = "orange", curvature = -0.2) +
   geom_label(aes(x = 1/2, y = 400, label = "Nelson Tasman Record"), color = "orange", fill = "white") +
   
-  geom_line(observed, mapping = aes(duration, value), color = "magenta", size = 1) +
-  geom_point(observed, mapping = aes(duration, value), color = "magenta", size = 2.5) +
+  geom_line(forecast, mapping = aes(duration, value), color = "magenta", size = 1) +
+  geom_point(forecast, mapping = aes(duration, value), color = "magenta", size = 2.5) +
   
   scale_x_continuous(trans = "log10", breaks = duraction_text_to_val$duration, labels = duraction_text_to_val$duration_label) +
   scale_y_log_eng(limits = c(7, 2900)) +
@@ -139,16 +148,16 @@ p1 <- ggplot() +
   )
 
 p1
-ggsave("outputs/hirds_output_example.png", plot = p1, dpi = 300, height = 8, width = 12)
+ggsave(glue("outputs/{site}_hirds_forecast_output.png"), plot = p1, dpi = 300, height = 8, width = 12)
 
 ggplotly(p1)
-htmlwidgets::saveWidget(ggplotly(p1), "outputs/hirds_output_example.html")
+htmlwidgets::saveWidget(glue(ggplotly(p1), "outputs/hirds_forecast_output.html"))
 
 # Plot 2
 p2 <- ggplot() +
   geom_line(hirds, mapping = aes(duration, val, color = ari), linetype = "dashed") +
-  geom_line(observed, mapping = aes(duration, value), color = "magenta", size = 1) +
-  geom_point(observed, mapping = aes(duration, value), color = "magenta", size = 2.5) +
+  geom_line(forecast, mapping = aes(duration, value), color = "magenta", size = 1) +
+  geom_point(forecast, mapping = aes(duration, value), color = "magenta", size = 2.5) +
   geom_line(nz_record, mapping = aes(duration, value, linetype = "NZ Record"), color = "red", size = 1) +
   scale_x_log_eng(limits = c(0.1, 100)) +
   scale_y_log_eng(limits = c(10, 1000)) +
