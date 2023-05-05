@@ -21,11 +21,10 @@ library(tmaptools)
 library(comprehenr)
 
 ########### INPUTS ###########
-ms <- seq(8, 12, 1)
-
+ms <- seq(3, 6, 1)
 #ms <- seq(8, 8, 1)
 
-month_years <- to_vec(for (m in ms) paste0("2021-", m))
+month_years <- to_vec(for (m in ms) paste0("2023-", m))
 ########### #################
 
 # TODO - functionalise kriging
@@ -44,16 +43,16 @@ get_site_data <- function(endpoint = endpoint) {
     )
 }
 
-get_rainfall_monthly_data <- function(endpoint = endpoint, collection = "Rainfall", from = "", to = "", month = "") {
+get_rainfall_monthly_data <- function(endpoint = endpoint, collection = "AllRainfall", from = "", to = "", month = "") {
   get_data_collection(
     endpoint = endpoint, collection = collection, method = "Total", interval = "1 months",
     from = from, to = to
   ) %>%
-    mutate(month = month(datetime, label = TRUE)) %>% 
+    mutate(datetime = datetime - months(1),
+           month = month(datetime, label = TRUE)) %>% 
     rename(rainfall_total = value) %>%
     group_by(site) %>%
     arrange(site, datetime) %>%
-    # slice(-1) %>% # remove first row due to offset, datetime refers to start of interval.
     ungroup() %>%
     mutate(
       interval = months(1),
@@ -110,7 +109,7 @@ for (month_year in month_years) {
   from <- format(start_date, "%Y%m%d")
   to <- format(end_date, "%Y%m%d")
 
-  tdc_month_rainfall <- get_rainfall_monthly_data(endpoint = tdc_endpoint, collection = "Rainfall", from = from, to = to, month = month)
+  tdc_month_rainfall <- get_rainfall_monthly_data(endpoint = tdc_endpoint, collection = "AllRainfall", from = from, to = to, month = month)
   mdc_month_rainfall <- get_rainfall_monthly_data(endpoint = mdc_endpoint, collection = "Rainfall2", from = from, to = to, month = month)
   wgrs_month_rainfall <- get_rainfall_monthly_data(endpoint = wgrc_endpoint, collection = "WebRainfall", from = from, to = to, month = month)
 
@@ -122,7 +121,7 @@ for (month_year in month_years) {
   from <- format(start_date - years(5), "%Y%m%d")
   to <- format(end_date - years(1), "%Y%m%d")
 
-  tdc_month_rainfall <- get_rainfall_monthly_data(endpoint = tdc_endpoint, collection = "Rainfall", from = "Data Start", to = "Data End", month = month)
+  tdc_month_rainfall <- get_rainfall_monthly_data(endpoint = tdc_endpoint, collection = "AllRainfall", from = "Data Start", to = "Data End", month = month)
   mdc_month_rainfall <- get_rainfall_monthly_data(endpoint = mdc_endpoint, collection = "Rainfall2", from = "Data Start", to = "Data End", month = month)
   wgrs_month_rainfall <- get_rainfall_monthly_data(endpoint = wgrc_endpoint, collection = "WebRainfall", from = "Data Start", to = "Data End", month = month)
 
@@ -131,7 +130,7 @@ for (month_year in month_years) {
     dplyr::rename(rainfall_total_avg_past5years = rainfall_avg_total)
 
   # Rainfall historic month total median
-  tdc_month_rainfall <- get_rainfall_monthly_data(endpoint = tdc_endpoint, collection = "Rainfall", from = "Data Start", to = "Data End", month = month)
+  tdc_month_rainfall <- get_rainfall_monthly_data(endpoint = tdc_endpoint, collection = "AllRainfall", from = "Data Start", to = "Data End", month = month)
   mdc_month_rainfall <- get_rainfall_monthly_data(endpoint = mdc_endpoint, collection = "Rainfall2", from = "Data Start", to = "Data End", month = month)
   wgrs_month_rainfall <- get_rainfall_monthly_data(endpoint = wgrc_endpoint, collection = "WebRainfall", from = "Data Start", to = "Data End", month = month)
 
@@ -365,7 +364,7 @@ for (month_year in month_years) {
   out2 <- p5 + p6 +
     plot_annotation(
       title = glue('Monthly Rainfall Summary {format(month_year, "%B %Y")}'),
-      caption = glue("TDC Hydrology"), # compiled {now_plot}
+      caption = glue("TDC Environmental Data"), # compiled {now_plot}
       theme = theme_border
     )
 
