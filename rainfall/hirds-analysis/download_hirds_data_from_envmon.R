@@ -37,4 +37,4 @@ get_hirds_table <- function(site) {
 out <- lapply(sites, get_hirds_table)
 names(out) <- sites
 
-saveRDS(out, "20221124_tdc_site_hird_data.rds")
+saveRDS(out, "20230510_tdc_site_hird_data.rds")

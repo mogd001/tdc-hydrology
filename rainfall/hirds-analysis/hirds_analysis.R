@@ -10,7 +10,7 @@ library(kableExtra)
 
 source("functions.R")
 
-site <- "HY Anatoki at Paradise"
+site <- "HY Wai-iti at Belgrove" # site <- "HY Anatoki at Paradise"
 from <- format(now() - days(5), "%Y%m%d")
 to <- "Now"
 

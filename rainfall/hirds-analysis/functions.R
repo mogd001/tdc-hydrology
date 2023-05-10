@@ -15,6 +15,7 @@ log_breaks <- function(maj, radix = 10) {
     radix^breaks
   }
 }
+
 scale_x_log_eng <- function(..., radix = 10) {
   scale_x_continuous(...,
     trans = log_trans(radix),
@@ -22,6 +23,7 @@ scale_x_log_eng <- function(..., radix = 10) {
     minor_breaks = log_breaks(FALSE, radix)
   )
 }
+
 scale_y_log_eng <- function(..., radix = 10) {
   scale_y_continuous(...,
     trans = log_trans(radix),
@@ -48,13 +50,17 @@ determine_ari_duration <- function(dl, v, hirds) {
 
 
 get_max_rainfall <- function(site, interval, from, to, endpoint = "http://envdata.tasman.govt.nz/data.hts?", measurement = "Rainfall") {
-
-  get_data_site_measurement(endpoint, site = site, measurement = measurement, method = "Moving Average", interval = interval, from = from, to = to) %>%
-    dplyr::select(datetime, value) %>%
-    mutate(
-      datetime = with_tz(datetime, tz = "NZ"),
-      duration_interval = interval
-    ) %>%
-    slice_max(value) %>%
-    head(1)
+  
+  tryCatch ({
+    get_data_site_measurement(endpoint, site = site, measurement = measurement, method = "Moving Average", interval = interval, from = from, to = to) %>%
+      dplyr::select(datetime, value) %>%
+      mutate(
+        datetime = with_tz(datetime, tz = "NZ"),
+        duration_interval = interval
+      ) %>%
+      slice_max(value) %>%
+      head(1)
+  }, error = function(e){
+    NULL
+  })
 }
