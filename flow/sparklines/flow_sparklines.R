@@ -10,6 +10,8 @@ library(htmlwidgets)
 
 unlink("flow-sparklines/*", recursive = TRUE)
 
+dt_frmt <- "%A %d %B %Y %I %p"
+
 catchments <- sf:: st_read("data/catchments.gpkg", layer = "catchments") %>% 
   mutate(catchment = factor(catchment,
                             ordered = TRUE,
@@ -30,7 +32,11 @@ site_catchment <- sites %>%
   st_set_geometry(NULL) %>% 
   select(site, catchment)
 
-flow_data <- get_data_collection(collection = "ActiveFlowSites", interval = "1 hour", time_interval = "P7D") %>% 
+n <- now()
+from <- format(n - days(7), "%Y%m%dT%H0000")
+to <- format(n, "%Y%m%dT%H0000") 
+
+flow_data <- get_data_collection(collection = "ActiveFlowSites", method = "Extrema", interval = "1 hour", from = from, to = to) %>% 
   rename(flow = value) %>% 
   mutate(
     datetime = with_tz(datetime, "NZ"),
@@ -66,7 +72,7 @@ flow_data_p7d_highlight <- flow_data_p7d %>%
 p <- ggplot() +
   geom_line(flow_data_p7d, mapping = aes(x = datetime, y = flow, color = catchment)) +
   facet_wrap(catchment~site, scales = "free_y", labeller = plot_labeller) +
-  labs(y = NULL, x = NULL, color = "Catchment", title = glue("Flow P7D (m3/s) {min_datetime} - {max_datetime}  [NZDT]")) +
+  labs(y = NULL, x = NULL, color = "Catchment", title = glue("Flow Past 7 Days (m3/s) from {format(min_datetime, dt_frmt )} to {format(max_datetime, dt_frmt)} [NZDT]")) +
   theme_classic() +
   theme(axis.line.x = element_blank(),
         axis.text.x = element_blank(),
@@ -78,14 +84,14 @@ p <- ggplot() +
         strip.text = element_text(hjust = 1),
         plot.margin = unit(c(1, 1, 1, 1), "cm"))
 
-ggsave(glue("flow-sparklines/{as.Date(max_datetime, tz = 'NZ')}_flow_sparklines.png"), p, dpi = 300, height = 10, width = 16)
+ggsave(glue("flow-sparklines/{format(max_datetime, '%Y%m%d-%H')}_flow_sparklines.png"), p, dpi = 300, height = 10, width = 16)
 
 # ggplotly
 p <- ggplot() +
   geom_line(flow_data_p7d_highlight, mapping = aes(x = dt, y = f, frame = date), size = 2, color = "red", alpha = 0.2) + 
   geom_line(flow_data_p7d, mapping = aes(x = datetime, y = flow, color = catchment, label = site)) +
   facet_wrap(catchment~site, scales = "free_y", labeller = plot_labeller) +
-  labs(y = NULL, x = NULL, color = "Catchment", title = glue("Flow P7D (m3/s) {min_datetime} - {max_datetime}  [NZDT]")) +
+  labs(y = NULL, x = NULL, color = "Catchment", title = glue("Flow Past 7 Days (m3/s) from {format(min_datetime, dt_frmt )} to {format(max_datetime, dt_frmt)} [NZDT]")) +
   theme_classic() +
   theme(axis.line.x = element_blank(),
         axis.text.x = element_blank(),
@@ -103,8 +109,8 @@ plotly_p <- ggplotly(p, tooltip = c("datetime",  "flow", "site"), height = 800, 
   animation_opts(easing = "elastic") %>% 
   animation_button(visible = FALSE)
 
-save_html(plotly_p, file = glue("flow-sparklines/{as.Date(max_datetime, tz = 'NZ')}_flow_sparklines.html"))
+save_html(plotly_p, file = glue("flow-sparklines/{format(max_datetime, '%Y%m%d-%H')}_flow_sparklines.html"))
 
-library(Microsoft365R)
-site <- get_sharepoint_site(site_name = "Environmental Monitoring")
-site$get_drive("Reports and Analyses")$upload_file(glue("flow-sparklines/{as.Date(max_datetime, tz = 'NZ')}_flow_sparklines.png"), glue("R Outputs/flow_sparklines.png"))
+# library(Microsoft365R)
+# site <- get_sharepoint_site(site_name = "Environmental Monitoring")
+# site$get_drive("Reports and Analyses")$upload_file(glue("flow-sparklines/{format(max_datetime, '%Y%m%d-%H')}_flow_sparklines.png"), glue("R Outputs/flow_sparklines.png"))

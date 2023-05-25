@@ -10,6 +10,8 @@ library(htmlwidgets)
 
 unlink("rainfall-sparklines/*", recursive = TRUE)
 
+dt_frmt <- "%A %d %B %Y %I %p"
+
 catchments <- catchments <- st_read("data/catchments.gpkg", layer = "catchments") %>%
   mutate(catchment = factor(catchment,
     ordered = TRUE,
@@ -30,7 +32,11 @@ site_catchment <- sites %>%
   st_set_geometry(NULL) %>%
   select(site, catchment)
 
-rainfall_data <- get_data_collection(collection = "AllRainfall", method = "Total", interval = "1 hour", time_interval = "P7D") %>%
+n <- now()
+from <- format(n - days(7), "%Y%m%dT%H0000")
+to <- format(n, "%Y%m%dT%H0000") 
+
+rainfall_data <- get_data_collection(collection = "AllRainfall", method = "Total", interval = "1 hour", from = from, to = to) %>%
   rename(rainfall = value) %>%
   mutate(
     datetime = with_tz(datetime, "NZ"),
@@ -68,7 +74,7 @@ rainfall_data_p7d_highlight <- rainfall_data_p7d %>%
 p <- ggplot() +
   geom_col(rainfall_data_p7d, mapping = aes(x = datetime, y = rainfall, fill = catchment)) +
   facet_wrap(catchment ~ site, scales = "free_y", labeller = plot_labeller) +
-  labs(y = NULL, x = NULL, fill = "Catchment", title = glue("Rainfall P7D (mm) {min_datetime} - {max_datetime}  [NZDT]")) +
+  labs(y = NULL, x = NULL, fill = "Catchment", title = glue("Rainfall Past 7 days (mm) from {format(min_datetime, dt_frmt )} to {format(max_datetime, dt_frmt )} [NZDT]")) +
   theme_classic() +
   theme(
     axis.line.x = element_blank(),
@@ -82,14 +88,14 @@ p <- ggplot() +
     plot.margin = unit(c(1, 1, 1, 1), "cm")
   )
 
-ggsave(glue("rainfall-sparklines/{as.Date(max_datetime, tz = 'NZ')}_rainfall_sparklines.png"), p, dpi = 300, height = 10, width = 19)
+ggsave(glue("rainfall-sparklines/{format(max_datetime, '%Y%m%d-%H')}_rainfall_sparklines.png"), p, dpi = 300, height = 10, width = 19)
 
 # ggplotly
 p <- ggplot() +
   geom_line(rainfall_data_p7d_highlight, mapping = aes(x = dt, y = r, frame = date), size = 2, color = "red", alpha = 0.2) +
   geom_col(rainfall_data_p7d, mapping = aes(x = datetime, y = rainfall, fill = catchment, label = site)) +
   facet_wrap(catchment ~ site, scales = "free_y", labeller = plot_labeller) +
-  labs(y = NULL, x = NULL, fill = "Catchment", title = glue("Rainfall P7D (mm) {min_datetime} - {max_datetime}  [NZDT]")) +
+  labs(y = NULL, x = NULL, fill = "Catchment", title = glue("Rainfall Past 7 days (mm) from {format(min_datetime, dt_frmt )} to {format(max_datetime, dt_frmt)} [NZDT]")) +
   theme_classic() +
   theme(
     axis.line.x = element_blank(),
@@ -102,7 +108,6 @@ p <- ggplot() +
     strip.text = element_text(hjust = 1),
     plot.margin = unit(c(1, 1, 1, 1), "cm")
   )
-
 
 plotly_p <- ggplotly(p, tooltip = c("datetime", "rainfall", "site"), height = 1000, width = 1800) %>%
   layout(hovermode = "x") %>%
@@ -111,9 +116,9 @@ plotly_p <- ggplotly(p, tooltip = c("datetime", "rainfall", "site"), height = 10
   animation_opts(easing = "elastic") %>%
   animation_button(visible = FALSE)
 
-save_html(plotly_p, file = glue("rainfall-sparklines/{as.Date(max_datetime, tz = 'NZ')}_rainfall_sparklines.html"))
+save_html(plotly_p, file = glue("rainfall-sparklines/{format(max_datetime, '%Y%m%d-%H')}_rainfall_sparklines.html"))
 
 # Upload to sharepoint
-library(Microsoft365R)
-site <- get_sharepoint_site(site_name = "Environmental Monitoring")
-site$get_drive("Reports and Analyses")$upload_file(glue("rainfall-sparklines/{as.Date(max_datetime, tz = 'NZ')}_rainfall_sparklines.png"), glue("R Outputs/rainfall_sparklines.png"))
+# library(Microsoft365R)
+# site <- get_sharepoint_site(site_name = "Environmental Monitoring")
+# site$get_drive("Reports and Analyses")$upload_file(glue("rainfall-sparklines/{format(max_datetime, '%Y%m%d-%H')}_rainfall_sparklines.png"), glue("R Outputs/rainfall_sparklines.png"))

@@ -2,3 +2,9 @@
 .Rhistory
 .RData
 .Ruserdata
+rainfall/rainfall-summary-p7days/outputs
+rainfall/rainfall-summary-p24hrs/outputs
+rainfall/sparklines/rainfall-sparklines
+flow/sparklines/flow-sparklines
+rainfall/hirds-analysis/outputs
+rainfall/monthly-reporting/outputs

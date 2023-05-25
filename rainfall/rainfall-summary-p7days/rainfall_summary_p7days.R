@@ -19,6 +19,8 @@ library(glue)
 
 unlink("outputs/*", recursive = TRUE)
 
+dt_frmt <- "%A %d %B %Y %I %p"
+
 catchments <- st_read("data/catchments.gpkg", layer = "catchments") %>%
   mutate(catchment = factor(catchment,
                             ordered = TRUE,
@@ -40,7 +42,11 @@ site_catchment <- sites %>%
   st_set_geometry(NULL) %>%
   select(site, site_name, catchment)
 
-rainfall_data <- get_data_collection(collection = "AllRainfall", method = "Total", interval = "1 hour", time_interval = "P7D") %>%
+n <- now()
+from <- format(n - days(7), "%Y%m%dT%H0000")
+to <- format(n, "%Y%m%dT%H0000") 
+
+rainfall_data <- get_data_collection(collection = "AllRainfall", method = "Total", interval = "1 hour", from = from, to = to) %>%
   rename(rainfall = value) %>%
   mutate(
     datetime = with_tz(datetime, "NZ"),
@@ -68,25 +74,24 @@ p <- ggplot(r_summary, aes(x = reorder(site_name, -p7d_rainfall_total), y = p7d_
   geom_bar(color = "black", alpha = 0.6, stat = "identity") +
   geom_text(mapping = aes(label = p7d_rainfall_total), size = 2, vjust = -1) + 
   theme_bw() +
-  labs(x = "", y = "Rainfall Total (mm)", fill = "Catchment", title = glue("Rainfall P7D (mm) {min_datetime} - {max_datetime}  [NZDT]")) + #caption = glue("at {now_plot})"
+  labs(x = "", y = "Rainfall Total (mm)", fill = "Catchment", title = glue("Rainfall Past 7 days (mm) from {format(min_datetime, dt_frmt)} to {format(max_datetime, dt_frmt)}  [NZDT]")) + #caption = glue("at {now_plot})"
   scale_y_continuous(limits = c(0, max(r_summary$p7d_rainfall_total * 1.05)), expand = c(0, NA)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
-ggsave(glue("outputs/{as.Date(max_datetime, tz = 'NZ')}_rainfall_summary_p7days.png"), p, dpi = 300, height = 10, width = 16)
+ggsave(glue("outputs/{format(max_datetime, '%Y%m%d-%H')}_rainfall_summary_p7days.png"), p, dpi = 300, height = 10, width = 16)
 
 p2 <- ggplot(r_summary, aes(x = reorder(site_name, -p7d_rainfall_total), y = p7d_rainfall_total, fill = catchment, 
                            text = paste("Site:", site_name, "\n 7 Day Rainfall Total:", p7d_rainfall_total, "mm"))) +
   geom_bar(color = "black", alpha = 0.6, stat = "identity") +
   theme_bw() +
-  labs(x = "", y = "Rainfall Total (mm)", fill = "Catchment", title = glue("Rainfall P7D (mm) {min_datetime} - {max_datetime}  [NZDT]")) + #caption = glue("at {now_plot})"
+  labs(x = "", y = "Rainfall Total (mm)", fill = "Catchment", title = glue("Rainfall Past 7 days (mm) from {format(min_datetime, dt_frmt)} to {format(max_datetime, dt_frmt)}  [NZDT]")) + #caption = glue("at {now_plot})"
   scale_y_continuous(limits = c(0, max(r_summary$p7d_rainfall_total * 1.05)), expand = c(0, NA)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
 
 plotly_p <- ggplotly(p2, tooltip = c("text"), height = 900, width = 1700)
-save_html(plotly_p, file = glue("outputs/{as.Date(max_datetime, tz = 'NZ')}_rainfall_summary_p7days.html"))
+save_html(plotly_p, file = glue("outputs/{format(max_datetime, '%Y%m%d-%H')}_rainfall_summary_p7days.html"))
 
 # Upload to sharepoint
-library(Microsoft365R)
-site <- get_sharepoint_site(site_name = "Environmental Monitoring")
-site$get_drive("Reports and Analyses")$upload_file(glue("outputs/{as.Date(max_datetime, tz = 'NZ')}_rainfall_summary_p7days.html"), glue("R Outputs/rainfall_summary_p7days.html"))
-
+# library(Microsoft365R)
+# site <- get_sharepoint_site(site_name = "Environmental Monitoring")
+# site$get_drive("Reports and Analyses")$upload_file(glue("outputs/{format(max_datetime, '%Y%m%d-%H')}_rainfall_summary_p7days.html"), glue("R Outputs/rainfall_summary_p7days.html"))

@@ -61,13 +61,12 @@ data %>% write_csv(glue("outputs/20230123_daily_rainfall_for_airquality.csv"))
 sites <- get_sites(collection = "AllRainfall")
 
 site1 <- "HY Nelson at Princes Dr"
-site1_data <- get_data_site_measurement(site = site1, measurement = "Rainfall", method = "Total", from = "Data start", to = "Data end", interval = "15 minute") %>% 
+site1_data <- get_data_site_measurement(site = site1, measurement = "Rainfall", method = "Total", from = "20230101", to = "Data end", interval = "1 hour") %>% 
   mutate(site = site1) %>% 
   rename(rainfall_mm = value)
 
 site1_out_data <- site1_data %>% 
-  mutate(datetime = with_tz(datetime, tz ="NZ"),
-         datetime = force_tz(datetime, tz ="UTC"))
+  mutate(datetime = format(with_tz(datetime, tz ="NZ"), "%d/%m/%Y %H:%M:%S"))
 
 
-site1_out_data %>% write_csv(glue("outputs/20230327_NelsonatPrincesDr.csv"))
+site1_out_data %>% write_csv(glue("outputs/20230510_NelsonatPrincesDr.csv"))

@@ -27,11 +27,9 @@ topo_50_template <- paste0(t_prefix, key, tMid, 50767, tSuffix)
 
 ################################################################################
 #
-# Title: Rainfall Map Summary
+# Title: Rainfall Summary Past 24 Hours
 # Author: Matt Ogden
-# Description: This script summarises rainfall totals for the past 24 hours.
-#
-# Datatable - file:///M:/Datafiles/Data%20Tables/RainHour.htm
+# Description: This script summarises rainfall totals for the past 24 hours with a map output.
 #
 ################################################################################
 
@@ -60,7 +58,11 @@ site_names <- select(sites, site, second_synonym) %>%
   rename(site_name = second_synonym)
 
 # Get rainfall last 24 hours
-rainfall <- get_data_collection(collection = "AllRainfall", method = "Total", interval = "1 hour", time_interval = "P24H") %>%
+n <- now()
+from <- format(n - hours(24), "%Y%m%dT%H0000")
+to <- format(n, "%Y%m%dT%H0000") 
+
+rainfall <- get_data_collection(collection = "AllRainfall", method = "Total", interval = "1 hour", from = from, to = to) %>%
   distinct() %>%
   mutate(datetime = with_tz(datetime, tz = "NZ")) %>%
   left_join(site_names, by = "site") %>%
@@ -106,14 +108,16 @@ rainfall_summary <- sites %>%
 # https://emilyriederer.github.io/demo-crosstalk/tutorial/tutorial-rmd.html#Ex:_One_dataset,_two_widgets
 rf_ct <- SharedData$new(rainfall_summary, key = ~site_name)
 
-table_link <- "file:///M:/Datafiles/Data%20Tables/RainHour.htm"
+table_link <- "file:///M:/Datafiles/Data%20Tables/RainHour.html"
 
 table <- rf_ct %>%
   datatable(
     caption = htmltools::tags$caption(
       style = "caption-side: top; text-align: left; color:black;  font-size:100% ;",
       htmltools::withTags(
-        div(HTML(glue('<a href={table_link} target="_blank">Rainfall Past 24 Hours</a> {max(rainfall$datetime)}')))
+        div(HTML(glue('<a href={table_link} target="_blank">Rainfall Past 24 Hours</a> {max(rainfall$datetime)}
+                       <br>{format(min(rainfall$datetime), "%A %d %B %Y %I %p")} to {format(max(rainfall$datetime), "%A %d %B %Y %I %p")}
+                      ')))
       )
     ),
     rownames = FALSE,
@@ -252,93 +256,25 @@ p <- crosstalk::bscols(
   div(map, style = css(width = "100%", height = "100%"))
 )
 
-htmltools::save_html(p, file = glue("outputs/{as.Date(max_datetime, tz = 'NZ')}_rainfall_summary_p24hrs.html"))
+htmltools::save_html(p, file = glue("outputs/{format(max_datetime, '%Y%m%d-%H')}_rainfall_summary_p24hrs.html"))
 
 # Upload to sharepoint
-library(Microsoft365R)
-site <- get_sharepoint_site(site_name = "Environmental Monitoring")
-site$get_drive("Reports and Analyses")$upload_file(glue("outputs/{as.Date(max_datetime, tz = 'NZ')}_rainfall_summary_p24hrs.html"), glue("R Outputs/rainfall_summary_p24hrs.html"))
-
-tryCatch(
-  expr = {
-    site$get_drive("Reports and Analyses")$delete_item("R Outputs/lib/image-Sites-0.0.1")
-  },
-  error = function(e) {
-    print("No image-Sites folder to delete.")
-  }
-)
-
-upload_image_sharepoint <- function(x, target_folder) {
-  site$get_drive("Reports and Analyses")$upload_file(glue("outputs/{target_folder}/{x}"), glue("R Outputs/{target_folder}/{x}"))
-}
-
-sites_files <- list.files("outputs/lib/image-Sites-0.0.1")
-map(sites_files, upload_image_sharepoint, target_folder = "lib/image-Sites-0.0.1")
-
-# # Load RainHour - old code
-# rain_hour <- "RainHour.htm"
-#
-# latest_hr <- with_tz(floor_date(now(), "1 hour"), tz = "Etc/GMT-12")
-# x <- c()
-# for (i in 0:23) {
-#   x <- append(x, format(latest_hr - hours(i), format = "%H:%M"))
+# library(Microsoft365R)
+# site <- get_sharepoint_site(site_name = "Environmental Monitoring")
+# site$get_drive("Reports and Analyses")$upload_file(glue("outputs/{format(max_datetime, '%Y%m%d-%H')}_rainfall_summary_p24hrs.html"), glue("R Outputs/rainfall_summary_p24hrs.html"))
+# 
+# tryCatch(
+#   expr = {
+#     site$get_drive("Reports and Analyses")$delete_item("R Outputs/lib/image-Sites-0.0.1")
+#   },
+#   error = function(e) {
+#     print("No image-Sites folder to delete.")
+#   }
+# )
+# 
+# upload_image_sharepoint <- function(x, target_folder) {
+#   site$get_drive("Reports and Analyses")$upload_file(glue("outputs/{target_folder}/{x}"), glue("R Outputs/{target_folder}/{x}"))
 # }
-# header <- append(c("sitename", "total_p24hrs"), rev(x))
-# rain_hr_df <- read_html(paste0(datatables_fp, "\\", rain_hour)) %>%
-#   html_table(fill = TRUE, header = FALSE) %>%
-#   first()
-# names(rain_hr_df) <- header
-#
-#
-
-# map <- plot_mapbox() %>%
-#   #add_sf(data = catchments_wgs, split = ~catchment, color = ~catchment, mode = "polygon") %>%  # add catchment outlines
-#   add_markers(data = rf_ct,  x = ~longitude,  y= ~latitude,
-#               size = ~total * 2, mode = "markers",
-#               text = ~paste0(site_name, "\n Total rainfall last 24 hours: ", total, " mm")) %>%
-#   layout(
-#     title = "Rainfall Summary Past 24 hours",
-#     mapbox = list(
-#       style = "mapbox://styles/mapbox/dark-v9",
-#       center = list(lat = ~ median(latitude), lon = ~ median(longitude)),
-#       zoom = 6
-#     )#,
-#     #updatemenus = list(list(y = 0.8, buttons = rev(style_buttons)))
-#   )
 # 
-# styles <- schema()$layout$layoutAttributes$mapbox$style$values
-# style_buttons <- lapply(styles, function(s) {
-#   list(
-#     label = s,
-#     method = "relayout",
-#     args = list("mapbox.style", s)
-#   )
-# })
-# 
-# library(mapdeck)
-# df <- as.data.frame(rainfall_summary)
-# # mapdeck
-# md <- mapdeck(token = Sys.getenv("MAPBOX_TOKEN"), style = 'mapbox://styles/mapbox/dark-v9', pitch = 45) %>%
-#   add_grid(
-#     data = df,
-#     lat = "latitude",
-#     lon = "longitude",
-#     elevation = "total",
-#     colour = "total",
-#     cell_size = 1000,
-#     elevation_scale = 10,
-#     legend = TRUE,
-#     auto_highlight = TRUE,
-#     layer_id = "grid")
-# # ) %>%
-# # add_text(
-# #   data = df,
-# #   lat = "latitude",
-# #   lon = "longitude",
-# #   text = "total",
-# #   fill_colour = 'total',
-# #   size = 1000,
-# #   layer_id = "text"
-# # )
-#
-# save_html(md, file = "outputs/test.html")
+# sites_files <- list.files("outputs/lib/image-Sites-0.0.1")
+# map(sites_files, upload_image_sharepoint, target_folder = "lib/image-Sites-0.0.1")
