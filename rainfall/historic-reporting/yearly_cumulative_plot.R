@@ -2,17 +2,20 @@ library(tidyverse)
 
 source("functions.R")
 
-tdc_logo <- get_png("tdc_logo.png")
+tdc_logo <- get_png("tdc_logo_white.png")
 
-from <- "Data start" # Data start"
-to <- "20230530" # "Data end"
+from <- "19800101" # Data start"
+to <- "20230601" # "Data end"
+
 target_year <- 2023
+comparison_year <- 2022
+
 max_rainfall <- 1000
 
 breaks <- seq(1980, 2025, by = 5)
 
-s <- "HY Waingaro at Hanging Rock"
-rainfall <- get_rainfall_daily_data(site = NA, from = from, to = to)
+#s <- "HY Waingaro at Hanging Rock"
+rainfall <- get_rainfall_daily_data(from = from, to = to)
 
 generate_historic_cumulative_plot <- function(s) {
   tryCatch(
@@ -85,7 +88,10 @@ generate_historic_cumulative_plot <- function(s) {
 
       rainfall_target_year <- rainfall_site %>%
         subset(year == target_year)
-
+      
+      rainfall_comparison_year <- rainfall_site %>%
+        subset(year == comparison_year)
+      
       max_rainfall <- plyr::round_any(max(rainfall_site$cumulative_rainfall), 100, f = ceiling) # max cumulative rainfall round up to the nearest 100
 
       p <- ggplot() +
@@ -94,8 +100,13 @@ generate_historic_cumulative_plot <- function(s) {
         annotate("text", x = as.Date("2000-12-01"), y = filter(rainfall_site_avg, date_monthday == "2000-12-01")$cumulative_rainfall_average, label = "AVG", color = "white", size = 6, fontface = "bold") +
         # geom_line(rainfall_site_median, mapping = aes(x = date_monthday, y = cumulative_rainfall_median), color = "black", linetype = "dashed", size = 1.5, alpha = 0.7) + # plot median line
         # annotate("text", x = as.Date("2000-12-17"), y = filter(rainfall_site_median, date_monthday == "2000-12-17")$cumulative_rainfall_median - 50, label = "MED", size = 6, fontface = "bold") +
-        geom_line(subset(rainfall_site, year == target_year), mapping = aes(x = date_monthday, y = cumulative_rainfall), color = "red", size = 2, alpha = 0.7) + # plot target year in red
+        geom_line(rainfall_target_year, mapping = aes(x = date_monthday, y = cumulative_rainfall), color = "red", size = 2, alpha = 0.7) + # plot target year in red
         annotate("text", x = max(rainfall_target_year$date_monthday), y = max(rainfall_target_year$cumulative_rainfall) + 20, label = glue("{target_year}"), color = "red", size = 5, fontface = "bold", hjust = 0, vjust = 0) +
+        
+        geom_line(rainfall_comparison_year, mapping = aes(x = date_monthday, y = cumulative_rainfall), color = "orange", size = 1.5, alpha = 0.7) + # plot comparison year in orange
+        annotate("text", x = max(rainfall_comparison_year$date_monthday) - days(15), y = max(rainfall_comparison_year$cumulative_rainfall) + 20, label = glue("{comparison_year}"), color = "orange", size = 5, fontface = "bold", hjust = 0, vjust = 0) +
+        
+        
         geom_text(data = filter(rainfall_site, date_monthday == "2000-12-31"), mapping = aes(x = max(date_monthday) - days(3), y = cumulative_rainfall, label = year), color = "white", hjust = 0, size = 0.8) +
         scale_x_date(
           date_labels = "%b",
@@ -103,30 +114,30 @@ generate_historic_cumulative_plot <- function(s) {
           limits = as.Date(c("2000-01-01", "2000-12-31")),
           expand = c(0, 0)
         ) +
-        scale_y_continuous(limits = c(0, max_rainfall + 100), expand = c(0, 0)) +
+        scale_y_continuous(limits = c(-5, max_rainfall + 30), expand = c(0, 0)) + 
         scale_colour_brewer(palette = "Set1", name = "Year bin") +
         labs(
           x = "", y = "Rainfall (mm)", title = glue("Yearly Cumulative Rainfall ({min(as.numeric(rainfall_site$year))}-{max(as.numeric(rainfall_site$year))})"),
           subtitle = glue("{substring(s, 4)} Rainfall Data")
         ) +
         theme(
-          plot.title = element_text(color = "#273691", hjust = 0, vjust = 1, size = rel(2)),
-          plot.subtitle = element_text(color = "#273691", hjust = 0, vjust = 1, size = rel(1.4)),
+          plot.title = element_text(color = "white", hjust = 0, vjust = 1, size = rel(2)),
+          plot.subtitle = element_text(color = "white", hjust = 0, vjust = 1, size = rel(1.4)),
           plot.background = element_rect(fill = "grey10"),
           panel.background = element_rect(fill = "grey10"),
-          panel.border = element_rect(fill = NA, color = "#273691", size = 0.5, linetype = "solid"),
+          panel.border = element_rect(fill = NA, color = "white", size = 0.5, linetype = "solid"),
           panel.grid.major.x = element_blank(), # element_line(color = "white", size = 0.05),
           panel.grid.major.y = element_blank(), # element_line(color = "white", size = 0.1),
           panel.grid.minor = element_blank(),
           axis.line = element_blank(),
-          axis.ticks = element_line(color = "#273691"),
-          axis.text = element_text(color = "#273691", size = rel(1.5)),
+          axis.ticks = element_line(color = "white"),
+          axis.text = element_text(color = "white", size = rel(1.2)),
           axis.text.y = element_text(hjust = 0.5),
-          axis.title.y = element_text(color = "#273691", size = rel(1.5), face = "bold"),
-          legend.text = element_text(color = "#273691", size = rel(0.9)),
+          axis.title.y = element_text(color = "white", size = rel(1.2), face = "bold"),
+          legend.text = element_text(color = "white", size = rel(0.9)),
           legend.background = element_rect(fill = "grey10"),
           legend.position = "right",
-          legend.title = element_text(color = "#273691", size = rel(1.1)),
+          legend.title = element_text(color = "white", size = rel(1.1)),
           legend.key = element_blank()
         )
 
@@ -141,4 +152,5 @@ generate_historic_cumulative_plot <- function(s) {
   )
 }
 
+generate_historic_cumulative_plot(s)
 lapply(unique(rainfall$site), generate_historic_cumulative_plot)
