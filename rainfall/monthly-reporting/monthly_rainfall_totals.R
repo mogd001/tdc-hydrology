@@ -21,7 +21,7 @@ library(tmaptools)
 library(comprehenr)
 
 ########### INPUTS ###########
-ms <- seq(1, 5, 1)
+ms <- seq(6, 7, 1)
 #ms <- seq(8, 8, 1)
 
 month_years <- to_vec(for (m in ms) paste0("2023-", m))
