@@ -3,6 +3,7 @@ library(lubridate)
 library(tdcR)
 library(glue)
 
+
 get_png <- function(filename) {
   grid::rasterGrob(png::readPNG(filename), interpolate = TRUE)
 }

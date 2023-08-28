@@ -2,25 +2,26 @@ library(tidyverse)
 
 source("functions.R")
 
+# Generates cumulative yearly plots for each hydro-rainfall site
+
 tdc_logo <- get_png("tdc_logo_white.png")
 
 from <- "19800101" # Data start"
-to <- "20230601" # "Data end"
+to <- "20230801" # "Data end"
 
 target_year <- 2023
-comparison_year <- 2022
+comparison_year <- 2022 # select a year to highlight for a comparison to the target_year
 
 max_rainfall <- 1000
 
 breaks <- seq(1980, 2025, by = 5)
 
-#s <- "HY Waingaro at Hanging Rock"
 rainfall <- get_rainfall_daily_data(from = from, to = to)
 
 generate_historic_cumulative_plot <- function(s) {
   tryCatch(
     {
-      # filter data and prepare for plotting
+      # Filter data and prepare for plotting
       rainfall_site <- rainfall %>%
         subset(site == s)
 
@@ -54,7 +55,6 @@ generate_historic_cumulative_plot <- function(s) {
         ungroup()
 
       # Define the breaks for the 5 year groupings
-
       rainfall_site$year_group <- cut(rainfall_site$year, breaks = breaks, labels = paste0(breaks[-length(breaks)], "-", breaks[-1]), include.lowest = TRUE)
       # Convert years into 5-year bins with labels
       bins <- cut(rainfall_site$year, breaks = breaks, labels = paste0(breaks[-length(breaks)], "-", breaks[-1]), include.lowest = TRUE)
@@ -152,5 +152,6 @@ generate_historic_cumulative_plot <- function(s) {
   )
 }
 
-generate_historic_cumulative_plot(s)
+#s <- "HY Waingaro at Hanging Rock"
+#generate_historic_cumulative_plot(s)
 lapply(unique(rainfall$site), generate_historic_cumulative_plot)

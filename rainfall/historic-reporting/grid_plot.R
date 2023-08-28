@@ -10,6 +10,8 @@ library(scales)
 
 source("functions.R")
 
+# Generates year-month rainfall total grid plots for each hydro-rainfall site
+
 tdc_logo <- get_png("tdc_logo_white.png")
 
 from <- "Data start"

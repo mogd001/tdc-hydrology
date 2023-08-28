@@ -5,6 +5,8 @@ library(glue)
 
 source("functions.R")
 
+# Compute summary statistics for each hydro-rainfall site
+
 from <- "Data start"
 to <- "Data end"
 
