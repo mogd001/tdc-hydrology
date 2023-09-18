@@ -1,4 +1,4 @@
-.libPaths(c( "C:/Apps/Hydro/library"))  #.libPaths()
+.libPaths(c( "C:\\Apps\\Hydro\\library"))  #.libPaths()
 library(glue)
 print(glue("lib path: {.libPaths()[1]}"))
 
