@@ -1,3 +1,5 @@
+options("rgdal_show_exportToProj4_warnings"="none")
+
 library(tidyverse)
 library(lubridate)
 library(glue)
@@ -10,7 +12,6 @@ library(automap)
 library(raster)
 library(car)
 library(classInt)
-library(RStoolbox)
 library(spatstat)
 library(dismo)
 library(fields)
@@ -19,10 +20,15 @@ library(Hmisc)
 library(patchwork)
 library(tmaptools)
 library(comprehenr)
+library(viridis)
+library(RStoolbox)
+
+ggmap::register_google(key = "AIzaSyBEj-P3pT3wWs9UazXX0ccrl5XzRO8MvM0")
+ggmap::register_stadiamaps(key = "AIzaSyBEj-P3pT3wWs9UazXX0ccrl5XzRO8MvM0")
 
 ########### INPUTS ###########
-ms <- seq(6, 7, 1)
-#ms <- seq(8, 8, 1)
+#ms <- seq(6, 7, 1)
+ms <- seq(10, 10, 1)
 
 month_years <- to_vec(for (m in ms) paste0("2023-", m))
 ########### #################
@@ -102,7 +108,7 @@ for (month_year in month_years) {
   month <- format(start_date, "%b")
 
   now <- format(Sys.time(), "%Y%m%dT%H%M")
-  now_plot <- str_replace(now, "T", " ")
+  now_plot <- stringr::str_replace(now, "T", " ")
   now_plot <- glue("{substr(now_plot, 1, nchar(now_plot) - 1)}0") # update text to nearest 10 minutes
 
   # Rainfall month total
@@ -286,7 +292,7 @@ for (month_year in month_years) {
   writeRaster(out_r, glue('outputs/{format(month_year, "%Y%m")}_tots_rainfall_summary.tif'), overwrite = TRUE)
 
   ####### Visualisation
-  basemap <- get_map(location = c(lon = 172.83031417, lat = -41.40166015), maptype = "terrain-background", zoom = 8, alpha = 0.3) # Richmond, NZ (alternative for getting location)
+  basemap <- get_map(location = c(lon = 172.83031417, lat = -41.40166015), zoom = 8, alpha = 0.3) # Richmond, NZ (alternative for getting location) # maptype = "stamen_terrain"
 
   pts <- as_tibble(rainfall)
   # max_rainfall <- max(pts$rainfall_total, na.rm = TRUE)

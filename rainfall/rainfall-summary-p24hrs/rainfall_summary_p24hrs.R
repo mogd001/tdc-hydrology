@@ -13,6 +13,7 @@ library(DT)
 library(crosstalk)
 library(leaflet)
 library(leafpop)
+library(ggmap)
 
 library(config)
 
@@ -20,10 +21,21 @@ config <- config::get()
 
 # Topo template
 t_prefix <- "http://tiles-a.data-cdn.linz.govt.nz/services;key="
-key <- config$linzkey
+linz_key <- config$linzkey
 tMid <- "/tiles/v4/layer="
 tSuffix <- "/EPSG:3857/{z}/{x}/{y}.png"
-topo_50_template <- paste0(t_prefix, key, tMid, 50767, tSuffix)
+topo_50_template <- paste0(t_prefix, linz_key, tMid, 50767, tSuffix)
+
+stadia_key <- config$stadiakey
+
+# Stadia toner template
+t_prefix <- "https://tiles.stadiamaps.com/tiles/stamen_toner/{z}/{x}/{y}{r}.png?api_key="
+stadia_toner_template <-  paste0(t_prefix, stadia_key)
+
+# Stadia toner lite template
+t_prefix <- "https://tiles.stadiamaps.com/tiles/stamen_toner_lite/{z}/{x}/{y}{r}.png?api_key="
+stadia_toner_lite_template <- paste0(t_prefix, stadia_key)
+
 
 ################################################################################
 #
@@ -191,8 +203,8 @@ p_all <- lapply(rainfall_summary$site_name, generate_plot)
 map <- leaflet(height = 900) %>%
   addTiles(urlTemplate = topo_50_template, group = "NZ Topo50") %>%
   addTiles(group = "OSM (default)") %>%
-  addProviderTiles(providers$Stamen.Toner, group = "Toner") %>%
-  addProviderTiles(providers$Stamen.TonerLite, group = "Toner Lite") %>%
+  addTiles(urlTemplate = stadia_toner_template, group = "Toner") %>%
+  addTiles(urlTemplate = stadia_toner_lite_template, group = "Toner Lite") %>%
   # add catchments
   addPolygons(
     group = "Catchments",
@@ -255,6 +267,9 @@ p <- crosstalk::bscols(
   div(table, style = css(width = "100%", height = "100%")),
   div(map, style = css(width = "100%", height = "100%"))
 )
+
+# create folder outputs
+dir.create("outputs")
 
 htmltools::save_html(p, file = glue("outputs/{format(max_datetime, '%Y%m%d-%H')}_rainfall_summary_p24hrs.html"))
 
